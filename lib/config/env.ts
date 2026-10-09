@@ -1,0 +1,8 @@
+export const Env = {
+  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  TICK_SECRET: process.env.TICK_SECRET || '',
+  ENABLE_MULTIPLAYER: process.env.NEXT_PUBLIC_ENABLE_MULTIPLAYER === 'true',
+  ENABLE_3D_WORLD: process.env.NEXT_PUBLIC_ENABLE_3D_WORLD === 'true',
+};

@@ -1,0 +1,32 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "overrides": [
+    {
+      "files": ["domains/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "react", "allowTypeImports": true, "message": "domains/ must not import React" },
+              { "name": "@react-three/fiber", "message": "domains/ must not import R3F" },
+              { "name": "@react-three/drei", "message": "domains/ must not import drei" }
+            ],
+            "patterns": ["react*", "@react-three*", "three*", "../src/client*"]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/client/3d/**/*"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["../server*", "../../lib/db*"]
+          }
+        ]
+      }
+    }
+  ]
+}
