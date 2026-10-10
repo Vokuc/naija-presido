@@ -4,6 +4,7 @@ import { enterVenueHandler } from '../src/server/commands/movement/enter-venue';
 import { leaveVenueHandler } from '../src/server/commands/movement/leave-venue';
 import { Commands } from '../lib/types/command-types';
 import { CommandContext } from '../lib/command-handler';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 describe('Geography and Movement Commands', () => {
   it('should change persistent location correctly', async () => {
@@ -18,13 +19,13 @@ describe('Geography and Movement Commands', () => {
     };
 
     const ctx: CommandContext = {
-      db: mockDb as unknown as Record<string, unknown>,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await changeLocationHandler({
       type: Commands.MOVE_CHARACTER,
-      payload: { targetLocationId: 'loc-456' }
+      payload: { targetLocationId: 'loc-456' }, idempotency_key: 'idemp-1', character_id: 'char-123', issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(true);
@@ -47,13 +48,13 @@ describe('Geography and Movement Commands', () => {
     };
 
     const ctx: CommandContext = {
-      db: mockDb as unknown as Record<string, unknown>,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await enterVenueHandler({
       type: Commands.ENTER_VENUE,
-      payload: { venueId: 'ven-1' }
+      payload: { venueId: 'ven-1' }, idempotency_key: 'idemp-1', character_id: 'char-123', issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(true);
@@ -80,13 +81,13 @@ describe('Geography and Movement Commands', () => {
     };
 
     const ctx: CommandContext = {
-      db: mockDb as unknown as Record<string, unknown>,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await enterVenueHandler({
       type: Commands.ENTER_VENUE,
-      payload: { venueId: 'ven-1' }
+      payload: { venueId: 'ven-1' }, idempotency_key: 'idemp-1', character_id: 'char-123', issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(false);
@@ -109,13 +110,13 @@ describe('Geography and Movement Commands', () => {
     };
 
     const ctx: CommandContext = {
-      db: mockDb as unknown as Record<string, unknown>,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await leaveVenueHandler({
       type: Commands.LEAVE_VENUE,
-      payload: {}
+      payload: {}, idempotency_key: 'idemp-1', character_id: 'char-123', issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(true);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/db/server';
+import { createClient } from '@/lib/db/server';
 import { Commands, Command } from '@/lib/types/command-types';
 import { createAccountHandler } from '@/src/server/commands/identity/create-account';
 import { createCharacterHandler } from '@/src/server/commands/identity/create-character';
@@ -11,7 +11,7 @@ import { leaveVenueHandler } from '@/src/server/commands/movement/leave-venue';
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     const command: Command<unknown> = await request.json();
@@ -28,25 +28,25 @@ export async function POST(request: Request) {
 
     switch (command.type) {
       case Commands.CREATE_ACCOUNT:
-        result = await createAccountHandler(command, ctx);
+        result = await createAccountHandler(command as any, ctx);
         break;
       case Commands.CREATE_CHARACTER:
-        result = await createCharacterHandler(command, ctx);
+        result = await createCharacterHandler(command as any, ctx);
         break;
       case Commands.SELECT_CHARACTER:
-        result = await selectCharacterHandler(command, ctx);
+        result = await selectCharacterHandler(command as any, ctx);
         break;
       case Commands.UPDATE_CHARACTER:
-        result = await updateCharacterHandler(command, ctx);
+        result = await updateCharacterHandler(command as any, ctx);
         break;
       case Commands.MOVE_CHARACTER:
-        result = await changeLocationHandler(command, ctx);
+        result = await changeLocationHandler(command as any, ctx);
         break;
       case Commands.ENTER_VENUE:
-        result = await enterVenueHandler(command, ctx);
+        result = await enterVenueHandler(command as any, ctx);
         break;
       case Commands.LEAVE_VENUE:
-        result = await leaveVenueHandler(command, ctx);
+        result = await leaveVenueHandler(command as any, ctx);
         break;
       default:
         return NextResponse.json({ error: 'Unknown command type' }, { status: 400 });

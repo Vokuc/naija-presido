@@ -28,12 +28,12 @@ export const leaveVenueHandler = createCommandHandler<LeaveVenuePayload>(
 
     if (!charState || !charState.venue_id) return 'Not currently in a venue';
 
-    (command.payload as Record<string, unknown>)._activeCharacterId = activeChar.character_id;
+    (command.payload as unknown as Record<string, unknown>)._activeCharacterId = activeChar.character_id;
     return true;
   },
   async (command) => {
     return {
-      characterId: (command.payload as Record<string, unknown>)._activeCharacterId as string
+      characterId: (command.payload as unknown as Record<string, unknown>)._activeCharacterId as string
     } as LeaveVenueState;
   },
   async (simulatedState, ctx) => {

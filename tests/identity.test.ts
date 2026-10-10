@@ -15,13 +15,16 @@ describe('Identity Lifecycle Commands', () => {
     };
 
     const ctx: CommandContext = {
-      db: mockDb,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await createAccountHandler({
       type: Commands.CREATE_ACCOUNT,
-      payload: { username: 'test_user' }
+      payload: { username: 'test_user' },
+      idempotency_key: 'idemp-1',
+      character_id: 'char-1',
+      issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(true);
@@ -39,8 +42,8 @@ describe('Identity Lifecycle Commands', () => {
   it('should reject invalid username', async () => {
     const result = await createAccountHandler({
       type: Commands.CREATE_ACCOUNT,
-      payload: { username: 't' } // too short
-    }, { db: {} as unknown as Record<string, unknown>, actorId: 'user-123' } as CommandContext);
+      payload: { username: 't' }, idempotency_key: 'idemp-1', character_id: 'char-1', issued_at: new Date().toISOString() // too short
+    }, { db: {} as any, actorId: 'user-123' } as CommandContext);
 
     expect(result.ok).toBe(false);
     expect(result.reason).toContain('Username must be between');
@@ -49,8 +52,8 @@ describe('Identity Lifecycle Commands', () => {
   it('should reject unauthenticated character creation', async () => {
     const result = await createCharacterHandler({
       type: Commands.CREATE_CHARACTER,
-      payload: { displayName: 'John Doe', isNpc: false }
-    }, { db: {} as unknown as Record<string, unknown>, actorId: undefined } as unknown as CommandContext);
+      payload: { displayName: 'John Doe', isNpc: false }, idempotency_key: 'idemp-1', character_id: 'char-1', issued_at: new Date().toISOString()
+    }, { db: {} as any, actorId: undefined } as unknown as CommandContext);
 
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('Authentication required to create a player character');
@@ -71,13 +74,13 @@ describe('Identity Lifecycle Commands', () => {
     // Overriding single behavior based on context is complex in vi mock without state,
     // let's just assert the validation and basic simulation passing
     const ctx: CommandContext = {
-      db: mockDb,
+      db: mockDb as any,
       actorId: 'user-123'
     };
 
     const result = await createCharacterHandler({
       type: Commands.CREATE_CHARACTER,
-      payload: { displayName: 'John Doe' }
+      payload: { displayName: 'John Doe' }, idempotency_key: 'idemp-1', character_id: 'char-1', issued_at: new Date().toISOString()
     }, ctx);
 
     expect(result.ok).toBe(true);

@@ -46,15 +46,15 @@ export const enterVenueHandler = createCommandHandler<EnterVenuePayload>(
     // For MVP, we might allow them to enter a venue from a different zone (auto-travel), 
     // but typically they should be in the correct zone. We will let them teleport for now.
 
-    (command.payload as Record<string, unknown>)._activeCharacterId = activeChar.character_id;
-    (command.payload as Record<string, unknown>)._zoneId = venue.zone_id;
+    (command.payload as unknown as Record<string, unknown>)._activeCharacterId = activeChar.character_id;
+    (command.payload as unknown as Record<string, unknown>)._zoneId = venue.zone_id;
     return true;
   },
   async (command) => {
     return {
-      characterId: (command.payload as Record<string, unknown>)._activeCharacterId as string,
+      characterId: (command.payload as unknown as Record<string, unknown>)._activeCharacterId as string,
       venueId: command.payload.venueId,
-      zoneId: (command.payload as Record<string, unknown>)._zoneId as string
+      zoneId: (command.payload as unknown as Record<string, unknown>)._zoneId as string
     } as EnterVenueState;
   },
   async (simulatedState, ctx) => {

@@ -1,8 +1,11 @@
 import { Command } from './types/command-types';
 
+import { SupabaseClient } from '@supabase/supabase-js';
+
 export interface CommandContext {
-  characterId: string;
-  // db: SupabaseClient... (will be injected)
+  characterId?: string;
+  actorId?: string;
+  db: SupabaseClient;
 }
 
 export interface CommandResult<T = unknown> {

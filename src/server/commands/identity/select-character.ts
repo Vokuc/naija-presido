@@ -24,7 +24,7 @@ export const selectCharacterHandler = createCommandHandler<SelectCharacterPayloa
     if (error || !data) return 'Character not found';
     
     // eslint-disable-next-999 (avoiding deep property access TS errors if any)
-    const userId = (data.acct_account as unknown as Record<string, unknown>)?.user_id || data.acct_account?.user_id;
+    const acc = Array.isArray(data.acct_account) ? data.acct_account[0] : data.acct_account; const userId = acc?.user_id;
 
     if (userId !== ctx.actorId) {
       return 'You do not own this character';
