@@ -5,6 +5,9 @@ import { createAccountHandler } from '@/src/server/commands/identity/create-acco
 import { createCharacterHandler } from '@/src/server/commands/identity/create-character';
 import { selectCharacterHandler } from '@/src/server/commands/identity/select-character';
 import { updateCharacterHandler } from '@/src/server/commands/identity/update-character';
+import { changeLocationHandler } from '@/src/server/commands/movement/change-location';
+import { enterVenueHandler } from '@/src/server/commands/movement/enter-venue';
+import { leaveVenueHandler } from '@/src/server/commands/movement/leave-venue';
 
 export async function POST(request: Request) {
   try {
@@ -35,6 +38,15 @@ export async function POST(request: Request) {
         break;
       case Commands.UPDATE_CHARACTER:
         result = await updateCharacterHandler(command, ctx);
+        break;
+      case Commands.MOVE_CHARACTER:
+        result = await changeLocationHandler(command, ctx);
+        break;
+      case Commands.ENTER_VENUE:
+        result = await enterVenueHandler(command, ctx);
+        break;
+      case Commands.LEAVE_VENUE:
+        result = await leaveVenueHandler(command, ctx);
         break;
       default:
         return NextResponse.json({ error: 'Unknown command type' }, { status: 400 });
