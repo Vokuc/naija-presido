@@ -1,6 +1,12 @@
 export const Commands = {
+  // Identity
+  CREATE_ACCOUNT:      'CREATE_ACCOUNT',
+  CREATE_CHARACTER:    'CREATE_CHARACTER',
+  SELECT_CHARACTER:    'SELECT_CHARACTER',
+  UPDATE_CHARACTER:    'UPDATE_CHARACTER',
+  GET_CURRENT_CHARACTER: 'GET_CURRENT_CHARACTER', // Though usually a read, adding for completeness if requested as command
+
   // Movement & Presence
-  MOVE_CHARACTER:      'MOVE_CHARACTER',
   ENTER_VENUE:         'ENTER_VENUE',
   LEAVE_VENUE:         'LEAVE_VENUE',
 
