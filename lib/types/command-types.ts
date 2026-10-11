@@ -12,6 +12,7 @@ export const Commands = {
   LEAVE_VENUE:           'LEAVE_VENUE',
 
   // Work & Economy
+  ACCEPT_JOB:            'ACCEPT_JOB',
   START_WORK:            'START_WORK',
   END_WORK:              'END_WORK',
   BUY_ITEM:              'BUY_ITEM',
@@ -30,6 +31,7 @@ export const Commands = {
   CREATE_ORGANIZATION:   'CREATE_ORGANIZATION',
 
   // Assets & Business
+  ACQUIRE_ASSET:         'ACQUIRE_ASSET',
   TRANSFER_ASSET:        'TRANSFER_ASSET',
   CREATE_BUSINESS:       'CREATE_BUSINESS',
   OPEN_BUSINESS:         'OPEN_BUSINESS',
@@ -119,6 +121,7 @@ export const AUTHORITATIVE_PROTECTED_FIELDS = [
  * Commands that strictly mandate an idempotency key (economic, social, voting).
  */
 export const IDEMPOTENT_MANDATORY_COMMANDS: ReadonlySet<CommandType> = new Set<CommandType>([
+  Commands.ACCEPT_JOB,
   Commands.START_WORK,
   Commands.END_WORK,
   Commands.BUY_ITEM,
@@ -128,6 +131,7 @@ export const IDEMPOTENT_MANDATORY_COMMANDS: ReadonlySet<CommandType> = new Set<C
   Commands.DISSOLVE_RELATIONSHIP,
   Commands.JOIN_ORGANIZATION,
   Commands.LEAVE_ORGANIZATION,
+  Commands.ACQUIRE_ASSET,
   Commands.TRANSFER_ASSET,
   Commands.CREATE_BUSINESS,
   Commands.VOTE,
