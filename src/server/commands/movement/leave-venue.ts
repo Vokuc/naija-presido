@@ -36,7 +36,7 @@ export const leaveVenueHandler = createCommandHandler<LeaveVenuePayload>(
       characterId: (command.payload as unknown as Record<string, unknown>)._activeCharacterId as string
     } as LeaveVenueState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as LeaveVenueState;
 
     const { error } = await ctx.db

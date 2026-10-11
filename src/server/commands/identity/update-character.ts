@@ -46,7 +46,7 @@ export const updateCharacterHandler = createCommandHandler<UpdateCharacterPayloa
       avatarConfig: command.payload.avatarConfig
     } as UpdateCharacterState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as UpdateCharacterState;
     const updates: Record<string, unknown> = {};
     if (state.displayName !== undefined) updates.display_name = state.displayName;

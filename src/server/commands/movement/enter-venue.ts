@@ -57,7 +57,7 @@ export const enterVenueHandler = createCommandHandler<EnterVenuePayload>(
       zoneId: (command.payload as unknown as Record<string, unknown>)._zoneId as string
     } as EnterVenueState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as EnterVenueState;
 
     const { error } = await ctx.db

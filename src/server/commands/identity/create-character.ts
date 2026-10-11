@@ -47,7 +47,7 @@ export const createCharacterHandler = createCommandHandler<CreateCharacterPayloa
       isNpc: !!command.payload.isNpc
     } as CreateCharacterState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as CreateCharacterState;
     
     // Create the character

@@ -41,7 +41,7 @@ export const changeLocationHandler = createCommandHandler<ChangeLocationPayload>
       targetLocationId: command.payload.targetLocationId
     } as ChangeLocationState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as ChangeLocationState;
 
     // Moving location implies leaving the current venue

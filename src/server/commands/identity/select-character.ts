@@ -47,7 +47,7 @@ export const selectCharacterHandler = createCommandHandler<SelectCharacterPayloa
       characterId: command.payload.characterId
     } as SelectCharacterState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as SelectCharacterState;
     
     // Upsert active character

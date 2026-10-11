@@ -49,7 +49,7 @@ export const createAccountHandler = createCommandHandler<CreateAccountPayload>(
       username: command.payload.username
     } as CreateAccountState;
   },
-  async (simulatedState, ctx) => {
+  async (simulatedState, events, ctx) => {
     const state = simulatedState as CreateAccountState;
     // Perform actual write using service role / auth context
     const { error } = await ctx.db
