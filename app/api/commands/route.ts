@@ -20,9 +20,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid command format' }, { status: 400 });
     }
 
+    const guestHeaderId = request.headers.get('x-guest-user-id');
+    const effectiveUserId = user?.id || guestHeaderId || (command.actor_id || '00000000-0000-0000-0000-000000000099');
+    const effectiveDb = user?.id ? supabase : (await import('@/lib/db/server')).createAdminClient();
+
     const ctx = {
-      db: supabase,
-      actorId: user?.id,
+      db: effectiveDb as any,
+      actorId: effectiveUserId,
     };
 
     let result;
