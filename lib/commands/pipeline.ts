@@ -10,6 +10,7 @@ import {
   CommandExecutionContext,
   SimulationOutcome,
 } from './types';
+import { EventService, deriveRetentionTier } from '@/domains/events';
 
 /**
  * Recursively inspects an object for forbidden authoritative keys.
@@ -252,17 +253,32 @@ async function defaultPersist<TPayload, TOutcome>(
 
   // Persist domain events & effects
   if (outcome.events && outcome.events.length > 0) {
+    const authoritativeGameTime = ctx.gameTime
+      ? ctx.gameTime.toISOString()
+      : await EventService.resolveGameTime(ctx.db);
+
     for (const evt of outcome.events) {
+      const retentionTier = evt.retention_tier ?? deriveRetentionTier(evt.significance);
+      const actorType = evt.actor_type ?? (evt.actor_id || ctx.characterId ? 'character' : 'system');
+      const gameTimestamp = evt.game_timestamp ?? authoritativeGameTime;
+
+      // Hydrate input event with authoritative derived values
+      evt.game_timestamp = gameTimestamp;
+      evt.retention_tier = retentionTier;
+      evt.actor_type = actorType;
+
       const eventInsert = {
         type: evt.type,
         category: evt.category,
         significance: evt.significance,
+        retention_tier: retentionTier,
         actor_id: evt.actor_id ?? ctx.characterId ?? null,
+        actor_type: actorType,
         location_id: evt.location_id ?? null,
         venue_id: evt.venue_id ?? null,
         payload: evt.payload ?? {},
         caused_by: evt.caused_by ?? null,
-        game_timestamp: evt.game_timestamp ?? new Date().toISOString(),
+        game_timestamp: gameTimestamp,
       };
 
       const insertQuery = ctx.db.from('evt_event').insert(eventInsert);

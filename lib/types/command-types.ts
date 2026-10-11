@@ -66,11 +66,13 @@ export interface DomainEventInput {
   category: 'action' | 'consequence' | 'world' | 'system';
   significance: 'trivial' | 'minor' | 'significant' | 'historic';
   actor_id?: string | null;
+  actor_type?: 'character' | 'account' | 'system' | 'organization';
   location_id?: string | null;
   venue_id?: string | null;
   payload?: Record<string, unknown>;
   caused_by?: string | null;
   game_timestamp?: string;
+  retention_tier?: 'ephemeral' | 'standard' | 'permanent';
   effects?: DomainEffectInput[];
 }
 
