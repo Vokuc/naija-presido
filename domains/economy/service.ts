@@ -504,4 +504,118 @@ export class EconomyService {
       description: row.description,
     };
   }
+
+  /**
+   * Starts a new work session.
+   */
+  public static async startWorkSession(
+    characterId: string,
+    employmentId: string,
+    db: any,
+    options: { gameTime?: Date; idempotencyKey?: string } = {}
+  ): Promise<WorkSession> {
+    const startedAtReal = new Date().toISOString();
+    const startedAtGame = options.gameTime ? options.gameTime.toISOString() : startedAtReal;
+    const idempotencyKey =
+      options.idempotencyKey ?? `idemp-ws-${Math.random().toString(36).substring(2, 9)}`;
+
+    const sessionRecord = {
+      character_id: characterId,
+      employment_id: employmentId,
+      started_at_real: startedAtReal,
+      started_at_game: startedAtGame,
+      ended_at_real: null,
+      ended_at_game: null,
+      game_hours: null,
+      earned: null,
+      idempotency_key: idempotencyKey,
+    };
+
+    let id: string;
+    const insertQuery = db.from('eco_work_session').insert(sessionRecord);
+    if (typeof insertQuery?.select === 'function') {
+      const { data: created } = await insertQuery.select('id').maybeSingle();
+      id = created?.id ?? `ws-${Math.random().toString(36).substring(2, 9)}`;
+    } else {
+      const res = (await insertQuery) as any;
+      id = res?.data?.id ?? `ws-${Math.random().toString(36).substring(2, 9)}`;
+    }
+
+    return {
+      id,
+      characterId,
+      employmentId,
+      startedAtReal,
+      startedAtGame,
+      idempotencyKey,
+    };
+  }
+
+  /**
+   * Concludes an ongoing work session and distributes accrued wages.
+   */
+  public static async endWorkSession(
+    workSessionId: string,
+    characterId: string,
+    db: any,
+    options: { gameTime?: Date; idempotencyKey?: string } = {}
+  ): Promise<{ id: string; gameHours: number; earned: number; transactionId?: string }> {
+    const endedAtReal = new Date().toISOString();
+    const endedAtGame = options.gameTime ? options.gameTime.toISOString() : endedAtReal;
+
+    const { data: session } = await db
+      .from('eco_work_session')
+      .select('*')
+      .eq('id', workSessionId)
+      .maybeSingle();
+
+    const { data: employment } = await db
+      .from('eco_employment')
+      .select('*')
+      .eq('id', session?.employment_id)
+      .maybeSingle();
+
+    const hourlyRate = Number(employment?.hourly_rate ?? 500);
+    const startGameMs = new Date(session?.started_at_game ?? endedAtGame).getTime();
+    const endGameMs = new Date(endedAtGame).getTime();
+    const elapsedHours = Math.max(0.5, (endGameMs - startGameMs) / (1000 * 60 * 60));
+    const hoursWorked = Math.round(elapsedHours * 100) / 100;
+    const earned = Math.round(hoursWorked * hourlyRate);
+
+    const idempotencyKey =
+      options.idempotencyKey ?? `idemp-wage-${workSessionId}-${Date.now()}`;
+
+    const transferRes = await this.transferFunds(
+      {
+        fromId: employment?.employer_id ?? null,
+        toId: characterId,
+        fromType: employment?.employer_type ?? 'character',
+        toType: 'character',
+        amount: earned,
+        sourceType: 'employment',
+        sourceId: workSessionId,
+        reason: `Wages for ${hoursWorked} game hours as ${employment?.job_title ?? 'Employee'}`,
+        idempotencyKey,
+        gameTimestamp: endedAtGame,
+      },
+      db
+    );
+
+    await db
+      .from('eco_work_session')
+      .update({
+        ended_at_real: endedAtReal,
+        ended_at_game: endedAtGame,
+        game_hours: hoursWorked,
+        earned,
+      })
+      .eq('id', workSessionId);
+
+    return {
+      id: workSessionId,
+      gameHours: hoursWorked,
+      earned,
+      transactionId: transferRes.transactionId,
+    };
+  }
 }

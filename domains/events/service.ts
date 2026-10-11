@@ -55,31 +55,34 @@ export class EventService {
    */
   public static async recordEvent(
     input: CreateDomainEventInput,
-    ctx: { db: any; worldTimeService?: WorldTimeService }
+    ctx: { db: any; worldTimeService?: WorldTimeService } | any
   ): Promise<DomainEventRecord> {
+    const db = ctx?.db ?? ctx;
+    const worldTimeService = ctx?.worldTimeService;
     const gameTimestamp =
-      input.gameTimestamp ?? (await this.resolveGameTime(ctx.db, ctx.worldTimeService));
+      input.gameTimestamp ?? (await this.resolveGameTime(db, worldTimeService));
     const retentionTier = input.retentionTier ?? deriveRetentionTier(input.significance);
-    const actorType = input.actorType ?? (input.actorId ? 'character' : 'system');
+    const effectiveActorId = input.actorId ?? (input as any).actor_id ?? null;
+    const actorType = input.actorType ?? (effectiveActorId ? 'character' : 'system');
 
     const eventInsert = {
       type: input.type,
       category: input.category,
       significance: input.significance,
       retention_tier: retentionTier,
-      actor_id: input.actorId ?? null,
+      actor_id: effectiveActorId,
       actor_type: actorType,
-      location_id: input.locationId ?? null,
-      venue_id: input.venueId ?? null,
+      location_id: input.locationId ?? (input as any).location_id ?? null,
+      venue_id: input.venueId ?? (input as any).venue_id ?? null,
       payload: input.payload ?? {},
-      caused_by: input.causedBy ?? null,
+      caused_by: input.causedBy ?? (input as any).caused_by ?? null,
       game_timestamp: gameTimestamp,
     };
 
     let eventId: string;
     let createdAt: string = new Date().toISOString();
 
-    const insertQuery = ctx.db.from('evt_event').insert(eventInsert);
+    const insertQuery = db.from('evt_event').insert(eventInsert);
 
     if (typeof insertQuery?.select === 'function') {
       const { data: created, error } = await insertQuery
@@ -108,7 +111,7 @@ export class EventService {
         delta: eff.delta,
       }));
 
-      const effectsQuery = ctx.db.from('evt_effect').insert(effectsToInsert);
+      const effectsQuery = db.from('evt_effect').insert(effectsToInsert);
       if (typeof effectsQuery?.select === 'function') {
         const { data: createdEffects } = await effectsQuery
           .select('id, target_type, target_id, attribute, delta, applied_at');
