@@ -59,6 +59,9 @@ VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- 5. Enhanced atomic transfer function with polymorphic entities and idempotency check
+DROP FUNCTION IF EXISTS public.eco_transfer_funds(uuid, uuid, numeric, text, uuid, text, uuid, timestamptz);
+DROP FUNCTION IF EXISTS public.eco_transfer_funds(uuid, uuid, numeric, text, uuid, text, uuid, timestamptz, text, text);
+
 CREATE OR REPLACE FUNCTION public.eco_transfer_funds(
   p_from_id         uuid,
   p_to_id           uuid,
@@ -139,4 +142,5 @@ END;
 $$;
 
 COMMENT ON TABLE eco_item_catalog IS 'Authoritative catalog of consumable and purchasable items in the economy.';
-COMMENT ON FUNCTION public.eco_transfer_funds IS 'Authoritative atomic fund transfer with idempotency, row-level locking, and ledger recording.';
+COMMENT ON FUNCTION public.eco_transfer_funds(uuid, uuid, numeric, text, uuid, text, uuid, timestamptz, text, text) IS 'Authoritative atomic fund transfer with idempotency, row-level locking, and ledger recording.';
+
