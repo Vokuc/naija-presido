@@ -12,6 +12,7 @@ import { KekeTransitDialog } from './components/KekeTransitDialog';
 import { PlazaVenueDialog } from './components/PlazaVenueDialog';
 import { NpcConversationDialog } from './components/NpcConversationDialog';
 import { ToastNotification } from './components/ToastNotification';
+import { ChatOverlay } from './components/ChatOverlay';
 
 export function GameView() {
   useGameLoop();
@@ -56,6 +57,9 @@ export function GameView() {
 
       {/* Toast Notifications */}
       <ToastNotification />
+
+      {/* Realtime Proximity Chat */}
+      <ChatOverlay />
 
       {/* Desktop Keybind Hints in Bottom-Left */}
       <div className="hidden sm:flex absolute bottom-4 left-4 z-20 pointer-events-none items-center gap-3 text-[11px] text-zinc-400 bg-black/60 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10">

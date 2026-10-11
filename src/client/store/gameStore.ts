@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { RemotePlayerState, ChatMessage, MovementFrame } from '../realtime/types';
+import { sendNeighbourhoodChat, broadcastStateChange, initRealtimePresence } from './realtimeStore';
 
 export interface Toast {
   id: string;
@@ -77,8 +79,13 @@ export interface GameStore {
   npcs: NpcInfo[];
   catalog: CatalogItem[];
 
-  // Ephemeral Co-present Players
+  // Ephemeral Realtime Presence & Remote Players
+  remotePlayers: Map<string, RemotePlayerState>;
   otherPlayers: Map<string, { id: string; name: string; position: [number, number, number]; rotation: number; isMoving: boolean }>;
+
+  // Ephemeral Neighbourhood Chat
+  chatMessages: ChatMessage[];
+  isChatOpen: boolean;
 
   // Interaction State
   nearbyInteractable: NearbyInteractable | null;
@@ -102,12 +109,26 @@ export interface GameStore {
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   removeToast: (id: string) => void;
+
+  // Realtime Presence Actions
+  syncRemotePlayers: (players: RemotePlayerState[]) => void;
+  updateRemotePlayerMovement: (frame: MovementFrame) => void;
+  removeRemotePlayer: (characterId: string) => void;
+
+  // Legacy compat
   updateOtherPlayer: (id: string, data: { name: string; position: [number, number, number]; rotation: number; isMoving: boolean }) => void;
   removeOtherPlayer: (id: string) => void;
 
-  // Authoritative Backend Commands
+  // Realtime Chat Actions
+  sendChatMessage: (text: string) => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  toggleChat: () => void;
+  setChatOpen: (open: boolean) => void;
+
+  // Authoritative Backend Commands & Meaningful State Synchronization
   enterVenue: (venueId: string) => Promise<boolean>;
   leaveVenue: () => Promise<boolean>;
+  changeNeighbourhood: (newZoneId: string, newZoneName?: string) => Promise<boolean>;
   buyItem: (itemName: string, sellerId?: string, venueId?: string) => Promise<boolean>;
   greetCharacter: (targetId: string) => Promise<boolean>;
   performWorkShift: () => Promise<boolean>;
@@ -171,7 +192,7 @@ export const CANONICAL_NPCS: NpcInfo[] = [
 
 export const useGameStore = create<GameStore>((set, get) => ({
   player: null,
-  position: [0, 0, 0], // Start at center of Olu Obasanjo Road
+  position: [0, 0, 0], // Center of Olu Obasanjo Road
   rotation: 0,
   isMoving: false,
   movementVector: { x: 0, z: 0 },
@@ -184,7 +205,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
   npcs: CANONICAL_NPCS,
   catalog: [],
 
+  remotePlayers: new Map(),
   otherPlayers: new Map(),
+
+  chatMessages: [
+    {
+      id: 'welcome-chat-1',
+      characterId: '00000000-0000-0000-0000-0000000000a1',
+      displayName: 'Mama Tarila',
+      text: 'Hot Port Harcourt Bole & Fish dey ready ontop grill o!',
+      zoneId: '10000000-0000-0000-0000-000000000004',
+      timestamp: Date.now() - 60000,
+    },
+    {
+      id: 'welcome-chat-2',
+      characterId: '00000000-0000-0000-0000-0000000000a2',
+      displayName: 'Elder Tamuno',
+      text: 'Waterlines straight! 200 naira per drop!',
+      zoneId: '10000000-0000-0000-0000-000000000004',
+      timestamp: Date.now() - 30000,
+    },
+  ],
+  isChatOpen: false,
 
   nearbyInteractable: null,
   activeModal: null,
@@ -199,7 +241,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   bootstrap: async () => {
     set({ isLoading: true });
     try {
-      // Retrieve or generate guest ID for persistence
       let guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : null;
       if (!guestId) {
         guestId = '00000000-0000-0000-0000-' + Math.floor(100000000000 + Math.random() * 900000000000);
@@ -373,23 +414,132 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }));
   },
 
+  // Realtime Presence Sync Actions
+  syncRemotePlayers: (players) => {
+    set((state) => {
+      const updated = new Map(state.remotePlayers);
+      const otherMap = new Map(state.otherPlayers);
+
+      // Track ids in sync payload
+      const validIds = new Set(players.map((p) => p.characterId));
+
+      // Remove players no longer in presence
+      for (const id of updated.keys()) {
+        if (!validIds.has(id)) {
+          updated.delete(id);
+          otherMap.delete(id);
+        }
+      }
+
+      // Add or update active players
+      for (const p of players) {
+        if (!updated.has(p.characterId)) {
+          updated.set(p.characterId, p);
+          otherMap.set(p.characterId, {
+            id: p.characterId,
+            name: p.displayName,
+            position: p.position,
+            rotation: p.rotation,
+            isMoving: p.isMoving,
+          });
+        }
+      }
+
+      return { remotePlayers: updated, otherPlayers: otherMap };
+    });
+  },
+
+  updateRemotePlayerMovement: (frame: MovementFrame) => {
+    set((state) => {
+      const updated = new Map(state.remotePlayers);
+      const otherMap = new Map(state.otherPlayers);
+
+      const existing = updated.get(frame.characterId);
+      if (existing) {
+        existing.targetPosition = frame.position;
+        existing.targetRotation = frame.rotation;
+        existing.isMoving = frame.isMoving;
+        existing.lastUpdated = frame.timestamp;
+      } else {
+        const newPlayer: RemotePlayerState = {
+          characterId: frame.characterId,
+          displayName: frame.displayName,
+          position: frame.position,
+          targetPosition: frame.position,
+          rotation: frame.rotation,
+          targetRotation: frame.rotation,
+          isMoving: frame.isMoving,
+          lastUpdated: frame.timestamp,
+        };
+        updated.set(frame.characterId, newPlayer);
+      }
+
+      otherMap.set(frame.characterId, {
+        id: frame.characterId,
+        name: frame.displayName,
+        position: frame.position,
+        rotation: frame.rotation,
+        isMoving: frame.isMoving,
+      });
+
+      return { remotePlayers: updated, otherPlayers: otherMap };
+    });
+  },
+
+  removeRemotePlayer: (characterId: string) => {
+    set((state) => {
+      const updated = new Map(state.remotePlayers);
+      const otherMap = new Map(state.otherPlayers);
+      updated.delete(characterId);
+      otherMap.delete(characterId);
+      return { remotePlayers: updated, otherPlayers: otherMap };
+    });
+  },
+
   updateOtherPlayer: (id, data) => {
     set((state) => {
-      const updated = new Map(state.otherPlayers);
-      updated.set(id, { id, ...data });
-      return { otherPlayers: updated };
+      const otherMap = new Map(state.otherPlayers);
+      otherMap.set(id, { id, ...data });
+      return { otherPlayers: otherMap };
     });
   },
 
   removeOtherPlayer: (id) => {
     set((state) => {
-      const updated = new Map(state.otherPlayers);
-      updated.delete(id);
-      return { otherPlayers: updated };
+      const otherMap = new Map(state.otherPlayers);
+      otherMap.delete(id);
+      return { otherPlayers: otherMap };
     });
   },
 
-  // Authoritative Backend Actions
+  // Realtime Chat
+  sendChatMessage: (text: string) => {
+    sendNeighbourhoodChat(text);
+  },
+
+  addChatMessage: (msg: ChatMessage) => {
+    set((state) => {
+      // Set active speech bubble for the character
+      const updatedRemote = new Map(state.remotePlayers);
+      const remote = updatedRemote.get(msg.characterId);
+      if (remote) {
+        remote.activeSpeechBubble = {
+          text: msg.text,
+          expiresAt: Date.now() + 5000,
+        };
+      }
+
+      return {
+        chatMessages: [...state.chatMessages.slice(-25), msg],
+        remotePlayers: updatedRemote,
+      };
+    });
+  },
+
+  toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
+  setChatOpen: (open: boolean) => set({ isChatOpen: open }),
+
+  // Authoritative Backend Actions with Realtime Sync
   enterVenue: async (venueId: string) => {
     const player = get().player;
     if (!player) return false;
@@ -417,13 +567,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }));
         const venue = get().venues.find((v) => v.id === venueId);
         get().addToast(`Entered ${venue?.name || 'Venue'}`, 'success');
+
+        // Broadcast state change to observers
+        broadcastStateChange('VENUE_ENTERED', `entered ${venue?.name || 'the venue'}`);
         return true;
       } else {
         get().addToast(`Failed to enter: ${data.error || 'Server error'}`, 'error');
         return false;
       }
     } catch {
-      // Local optimistic fallback for presentation layer
       set((state) => ({
         player: state.player ? { ...state.player, venueId } : null,
       }));
@@ -458,6 +610,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           player: state.player ? { ...state.player, venueId: null } : null,
         }));
         get().addToast(`Left venue back to Olu Obasanjo Road`, 'info');
+        broadcastStateChange('VENUE_LEFT', 'stepped outside back to the street');
         get().closeModal();
         return true;
       }
@@ -467,6 +620,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }));
       get().addToast(`Stepped out to the street`, 'info');
       get().closeModal();
+      return true;
+    }
+    return false;
+  },
+
+  changeNeighbourhood: async (newZoneId: string, newZoneName?: string) => {
+    const player = get().player;
+    if (!player) return false;
+
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'MOVE_CHARACTER',
+          payload: { targetLocationId: newZoneId },
+          issued_at: new Date().toISOString(),
+          actor_id: player.userId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        set((state) => ({
+          zoneId: newZoneId,
+          zoneName: newZoneName || state.zoneName,
+          player: state.player ? { ...state.player, locationId: newZoneId, venueId: null } : null,
+        }));
+
+        // Reconnect realtime transport to the new zone
+        await initRealtimePresence(newZoneId, {
+          characterId: player.characterId,
+          displayName: player.displayName,
+          jobTitle: player.jobTitle,
+        });
+
+        get().addToast(`Arrived in ${newZoneName || 'new neighbourhood'}`, 'success');
+        return true;
+      }
+    } catch {
+      set((state) => ({
+        zoneId: newZoneId,
+        zoneName: newZoneName || state.zoneName,
+      }));
       return true;
     }
     return false;
@@ -508,6 +709,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null,
         }));
         get().addToast(`Purchased ${itemName}! Paid ₦${outcome.price?.toLocaleString()}`, 'success');
+
+        // Synchronize low-frequency state event
+        broadcastStateChange('ITEM_PURCHASED', `bought ${itemName}`, { itemName, price: outcome.price });
         return true;
       } else {
         get().addToast(data.error || 'Could not complete purchase', 'error');
@@ -546,6 +750,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const data = await res.json();
       if (data.ok) {
         get().addToast(`You greeted warmly! Neighbourhood popularity boosted.`, 'success');
+        broadcastStateChange('GREETING', 'gave a warm Port Harcourt greeting');
         return true;
       }
     } catch {
@@ -635,6 +840,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               : null,
           }));
           get().addToast(`Completed work shift! Earned ₦${earned?.toLocaleString()}`, 'success');
+          broadcastStateChange('WORK_COMPLETED', `finished work shift at Garden City Plaza (+₦${earned})`);
           return true;
         }
       }
@@ -651,6 +857,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           : null,
       }));
       get().addToast(`Work shift finished at Garden City Plaza! Earned ₦1,600`, 'success');
+      broadcastStateChange('WORK_COMPLETED', 'completed logistics shift (+₦1,600)');
       return true;
     } catch (err: any) {
       get().addToast(`Work session error: ${err?.message}`, 'error');
@@ -698,6 +905,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             : null,
         }));
         get().addToast(`Boarded Elder Tamuno's Keke! ₦200 fare paid. Safe trip!`, 'success');
+        broadcastStateChange('ITEM_PURCHASED', 'took a Keke Napep transit trip to Garrison');
         return true;
       }
     } catch {

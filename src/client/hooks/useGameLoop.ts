@@ -19,8 +19,9 @@ export function useGameLoop() {
   useEffect(() => {
     if (player && zoneId) {
       initRealtimePresence(zoneId, {
-        id: player.characterId,
-        name: player.displayName,
+        characterId: player.characterId,
+        displayName: player.displayName,
+        jobTitle: player.jobTitle,
       });
 
       return () => {
