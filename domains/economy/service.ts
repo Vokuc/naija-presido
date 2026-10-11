@@ -462,6 +462,24 @@ export class EconomyService {
     if (error || !row) {
       // Fallback in-memory catalog for testing or if table not yet populated
       const fallbackCatalog: Record<string, ItemCatalogEntry> = {
+        'Port Harcourt Bole & Fish': {
+          id: 'item-bole-fish',
+          name: 'Port Harcourt Bole & Fish',
+          category: 'food',
+          price: 1500,
+          energyDelta: 35,
+          hungerDelta: -50,
+          isDurable: false,
+        },
+        'Cold Zobo Drink': {
+          id: 'item-zobo',
+          name: 'Cold Zobo Drink',
+          category: 'drink',
+          price: 200,
+          energyDelta: 15,
+          hungerDelta: -20,
+          isDurable: false,
+        },
         'Jollof Rice & Chicken': {
           id: 'item-jollof',
           name: 'Jollof Rice & Chicken',

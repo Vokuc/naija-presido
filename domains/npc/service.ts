@@ -305,12 +305,14 @@ export class NpcService {
 
         const hunger = Number(stats?.hunger ?? 0);
         if (hunger >= 15) {
-          const item = await EconomyService.getItem('Jollof Rice & Chicken', db);
+          const item =
+            (await EconomyService.getItem('Port Harcourt Bole & Fish', db)) ??
+            (await EconomyService.getItem('Jollof Rice & Chicken', db));
           const wallet = await EconomyService.getWallet(profile.characterId, db);
 
           if (item && wallet.balance >= item.price) {
-            // Find Mama Nkechi as the seller
-            const vendorId = CANONICAL_NPC_IDS.MAMA_NKECHI;
+            // Find Mama Tarila as the seller
+            const vendorId = CANONICAL_NPC_IDS.MAMA_TARILA;
 
             await EconomyService.transferFunds(
               {
@@ -565,8 +567,10 @@ export class NpcService {
         db
       );
     } else if (interactionType === 'buy_food') {
-      // Player purchases meal from Mama Nkechi
-      const item = await EconomyService.getItem('Jollof Rice & Chicken', db);
+      // Player purchases meal from Mama Tarila (or local vendor)
+      const item =
+        (await EconomyService.getItem('Port Harcourt Bole & Fish', db)) ??
+        (await EconomyService.getItem('Jollof Rice & Chicken', db));
       if (!item) throw new Error('Catalog item not found');
 
       const transfer = await EconomyService.transferFunds(
@@ -642,7 +646,7 @@ export class NpcService {
           amount: fare,
           sourceType: 'purchase',
           sourceId: null,
-          reason: `Keke Napep fare to Otigba Junction`,
+          reason: `Keke Napep fare along Olu Obasanjo Road to Garrison Junction`,
           idempotencyKey: `idemp-ride-${actorCharacterId}-${Date.now()}`,
           gameTimestamp: gameTime.toISOString(),
         },
@@ -657,7 +661,7 @@ export class NpcService {
           category: 'action',
           significance: 'trivial',
           actorId: actorCharacterId,
-          payload: { rider_id: targetNpcId, fare, destination: 'Otigba Junction' },
+          payload: { rider_id: targetNpcId, fare, destination: 'Garrison Junction Keke Park' },
         },
         db
       );

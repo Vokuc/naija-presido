@@ -36,7 +36,16 @@ describe('Meaningful NPC and Gameplay Loop Foundation', () => {
     mockReputations = new Map();
     mockItemCatalog = new Map();
 
-    // 1. Seed Item Catalog
+    // 1. Seed Item Catalog (Port Harcourt Cuisine)
+    mockItemCatalog.set('Port Harcourt Bole & Fish', {
+      id: 'item-bole-fish',
+      name: 'Port Harcourt Bole & Fish',
+      category: 'food',
+      price: 1500,
+      energy_delta: 35,
+      hunger_delta: -50,
+      is_durable: false,
+    });
     mockItemCatalog.set('Jollof Rice & Chicken', {
       id: 'item-jollof',
       name: 'Jollof Rice & Chicken',
@@ -47,131 +56,131 @@ describe('Meaningful NPC and Gameplay Loop Foundation', () => {
       is_durable: false,
     });
 
-    // 2. Seed Canonical NPCs
-    // Mama Nkechi
-    mockCharacters.set(CANONICAL_NPC_IDS.MAMA_NKECHI, {
-      id: CANONICAL_NPC_IDS.MAMA_NKECHI,
-      display_name: 'Mama Nkechi (Chinyere Okonkwo)',
+    // 2. Seed Canonical Port Harcourt NPCs
+    // Mama Tarila (Food Vendor / Bole Queen)
+    mockCharacters.set(CANONICAL_NPC_IDS.MAMA_TARILA, {
+      id: CANONICAL_NPC_IDS.MAMA_TARILA,
+      display_name: 'Mama Tarila (Tarilaere Briggs)',
       is_npc: true,
       status: 'alive',
     });
-    mockCharacterStates.set(CANONICAL_NPC_IDS.MAMA_NKECHI, {
-      character_id: CANONICAL_NPC_IDS.MAMA_NKECHI,
-      location_id: 'zone-otigba',
-      venue_id: 'venue-mama-put',
+    mockCharacterStates.set(CANONICAL_NPC_IDS.MAMA_TARILA, {
+      character_id: CANONICAL_NPC_IDS.MAMA_TARILA,
+      location_id: 'zone-olu-obasanjo-rd',
+      venue_id: 'venue-mama-tarila-bole',
       status: 'active',
     });
-    mockCharacterStats.set(CANONICAL_NPC_IDS.MAMA_NKECHI, {
-      character_id: CANONICAL_NPC_IDS.MAMA_NKECHI,
+    mockCharacterStats.set(CANONICAL_NPC_IDS.MAMA_TARILA, {
+      character_id: CANONICAL_NPC_IDS.MAMA_TARILA,
       energy: 95,
       hunger: 10,
       health: 100,
-      job_title: 'Bukka Proprietress',
+      job_title: 'Bole & Fish Proprietress',
     });
-    mockWallets.set(CANONICAL_NPC_IDS.MAMA_NKECHI, {
+    mockWallets.set(CANONICAL_NPC_IDS.MAMA_TARILA, {
       id: 'wal-mama',
-      character_id: CANONICAL_NPC_IDS.MAMA_NKECHI,
+      character_id: CANONICAL_NPC_IDS.MAMA_TARILA,
       owner_type: 'character',
       balance: 25000,
       currency: 'NGN',
     });
-    mockNpcProfiles.set(CANONICAL_NPC_IDS.MAMA_NKECHI, {
-      character_id: CANONICAL_NPC_IDS.MAMA_NKECHI,
+    mockNpcProfiles.set(CANONICAL_NPC_IDS.MAMA_TARILA, {
+      character_id: CANONICAL_NPC_IDS.MAMA_TARILA,
       role: 'food_vendor',
       schedule_type: 'standard_shift',
-      home_venue_id: 'venue-mama-put',
-      work_venue_id: 'venue-mama-put',
+      home_venue_id: 'venue-mama-tarila-bole',
+      work_venue_id: 'venue-mama-tarila-bole',
       current_activity: 'working',
       routine: DEFAULT_NPC_ROUTINES.food_vendor,
       dialogue: {
-        greeting: ['Welcome, my customer! Hot jollof dey!'],
+        greeting: ['Welcome, my person! Correct Port Harcourt Bole and fish dey hot!'],
       },
       metadata: {},
     });
 
-    // Baba Musbau
-    mockCharacters.set(CANONICAL_NPC_IDS.BABA_MUSBAU, {
-      id: CANONICAL_NPC_IDS.BABA_MUSBAU,
-      display_name: 'Baba Musbau (Musbau Alabi)',
+    // Elder Tamuno (Commercial Keke Operator)
+    mockCharacters.set(CANONICAL_NPC_IDS.ELDER_TAMUNO, {
+      id: CANONICAL_NPC_IDS.ELDER_TAMUNO,
+      display_name: 'Elder Tamuno (Tamunominabo Peters)',
       is_npc: true,
       status: 'alive',
     });
-    mockCharacterStates.set(CANONICAL_NPC_IDS.BABA_MUSBAU, {
-      character_id: CANONICAL_NPC_IDS.BABA_MUSBAU,
-      location_id: 'zone-otigba',
-      venue_id: 'venue-otigba-junction',
+    mockCharacterStates.set(CANONICAL_NPC_IDS.ELDER_TAMUNO, {
+      character_id: CANONICAL_NPC_IDS.ELDER_TAMUNO,
+      location_id: 'zone-olu-obasanjo-rd',
+      venue_id: 'venue-garrison-keke-park',
       status: 'active',
     });
-    mockCharacterStats.set(CANONICAL_NPC_IDS.BABA_MUSBAU, {
-      character_id: CANONICAL_NPC_IDS.BABA_MUSBAU,
+    mockCharacterStats.set(CANONICAL_NPC_IDS.ELDER_TAMUNO, {
+      character_id: CANONICAL_NPC_IDS.ELDER_TAMUNO,
       energy: 90,
       hunger: 30, // Hungry enough to eat lunch!
       health: 95,
-      job_title: 'Keke Napep Rider',
+      job_title: 'Commercial Keke Operator',
     });
-    mockWallets.set(CANONICAL_NPC_IDS.BABA_MUSBAU, {
-      id: 'wal-musbau',
-      character_id: CANONICAL_NPC_IDS.BABA_MUSBAU,
+    mockWallets.set(CANONICAL_NPC_IDS.ELDER_TAMUNO, {
+      id: 'wal-tamuno',
+      character_id: CANONICAL_NPC_IDS.ELDER_TAMUNO,
       owner_type: 'character',
       balance: 5000,
       currency: 'NGN',
     });
-    mockNpcProfiles.set(CANONICAL_NPC_IDS.BABA_MUSBAU, {
-      character_id: CANONICAL_NPC_IDS.BABA_MUSBAU,
+    mockNpcProfiles.set(CANONICAL_NPC_IDS.ELDER_TAMUNO, {
+      character_id: CANONICAL_NPC_IDS.ELDER_TAMUNO,
       role: 'transport_rider',
       schedule_type: 'standard_shift',
-      home_venue_id: 'venue-otigba-junction',
-      work_venue_id: 'venue-otigba-junction',
+      home_venue_id: 'venue-garrison-keke-park',
+      work_venue_id: 'venue-garrison-keke-park',
       current_activity: 'working',
       routine: DEFAULT_NPC_ROUTINES.transport_rider,
       dialogue: {
-        greeting: ['Otigba straight! Enter with your change o!'],
+        greeting: ['Waterlines straight! 200 naira per drop!'],
       },
       metadata: {},
     });
 
-    // Officer Danladi
-    mockCharacters.set(CANONICAL_NPC_IDS.OFFICER_DANLADI, {
-      id: CANONICAL_NPC_IDS.OFFICER_DANLADI,
-      display_name: 'Officer Danladi (Danladi Garba)',
+    // Inspector Friday (Community Patrol / Garden City Watch)
+    mockCharacters.set(CANONICAL_NPC_IDS.INSPECTOR_FRIDAY, {
+      id: CANONICAL_NPC_IDS.INSPECTOR_FRIDAY,
+      display_name: 'Inspector Friday (Friday Amadi)',
       is_npc: true,
       status: 'alive',
     });
-    mockCharacterStates.set(CANONICAL_NPC_IDS.OFFICER_DANLADI, {
-      character_id: CANONICAL_NPC_IDS.OFFICER_DANLADI,
-      location_id: 'zone-otigba',
-      venue_id: 'venue-otigba-junction',
+    mockCharacterStates.set(CANONICAL_NPC_IDS.INSPECTOR_FRIDAY, {
+      character_id: CANONICAL_NPC_IDS.INSPECTOR_FRIDAY,
+      location_id: 'zone-olu-obasanjo-rd',
+      venue_id: 'venue-garrison-keke-park',
       status: 'active',
     });
-    mockCharacterStats.set(CANONICAL_NPC_IDS.OFFICER_DANLADI, {
-      character_id: CANONICAL_NPC_IDS.OFFICER_DANLADI,
+    mockCharacterStats.set(CANONICAL_NPC_IDS.INSPECTOR_FRIDAY, {
+      character_id: CANONICAL_NPC_IDS.INSPECTOR_FRIDAY,
       energy: 100,
       hunger: 15,
       health: 100,
-      job_title: 'Community Security Watch',
+      job_title: 'Community Safety Officer',
     });
-    mockWallets.set(CANONICAL_NPC_IDS.OFFICER_DANLADI, {
-      id: 'wal-danladi',
-      character_id: CANONICAL_NPC_IDS.OFFICER_DANLADI,
+    mockWallets.set(CANONICAL_NPC_IDS.INSPECTOR_FRIDAY, {
+      id: 'wal-friday',
+      character_id: CANONICAL_NPC_IDS.INSPECTOR_FRIDAY,
       owner_type: 'character',
       balance: 8000,
       currency: 'NGN',
     });
-    mockNpcProfiles.set(CANONICAL_NPC_IDS.OFFICER_DANLADI, {
-      character_id: CANONICAL_NPC_IDS.OFFICER_DANLADI,
+    mockNpcProfiles.set(CANONICAL_NPC_IDS.INSPECTOR_FRIDAY, {
+      character_id: CANONICAL_NPC_IDS.INSPECTOR_FRIDAY,
       role: 'community_patrol',
       schedule_type: 'standard_shift',
-      home_venue_id: 'venue-otigba-junction',
-      work_venue_id: 'venue-otigba-junction',
+      home_venue_id: 'venue-garrison-keke-park',
+      work_venue_id: 'venue-garrison-keke-park',
       current_activity: 'patrolling',
       routine: DEFAULT_NPC_ROUTINES.community_patrol,
       dialogue: {
-        greeting: ['Good day my brother. Everything calm for here.'],
+        greeting: ['Good day my brother. Garden City dey calm and secured.'],
       },
       metadata: {},
     });
 
-    // Seed Player Character: Emeka
+    // Seed Player Character: Emeka in Port Harcourt
     const playerId = 'char-player-emeka';
     mockCharacters.set(playerId, {
       id: playerId,
@@ -181,8 +190,8 @@ describe('Meaningful NPC and Gameplay Loop Foundation', () => {
     });
     mockCharacterStates.set(playerId, {
       character_id: playerId,
-      location_id: 'zone-otigba',
-      venue_id: 'venue-mama-put', // Player is sitting inside Mama Put Otigba
+      location_id: 'zone-olu-obasanjo-rd',
+      venue_id: 'venue-mama-tarila-bole', // Player is sitting inside Mama Tarila Bole Joint
       status: 'active',
     });
     mockCharacterStats.set(playerId, {
@@ -190,7 +199,7 @@ describe('Meaningful NPC and Gameplay Loop Foundation', () => {
       energy: 60,
       hunger: 45,
       health: 100,
-      job_title: 'Market Apprentice',
+      job_title: 'D-Line Trader',
     });
     mockWallets.set(playerId, {
       id: 'wal-player-emeka',
@@ -556,16 +565,16 @@ describe('Meaningful NPC and Gameplay Loop Foundation', () => {
     const profiles = await NpcService.getNpcProfiles(mockDb);
     expect(profiles.length).toBe(3);
 
-    const mamaProfile = profiles.find((p) => p.characterId === CANONICAL_NPC_IDS.MAMA_NKECHI);
+    const mamaProfile = profiles.find((p) => p.characterId === CANONICAL_NPC_IDS.MAMA_TARILA);
     expect(mamaProfile).toBeDefined();
     expect(mamaProfile?.role).toBe('food_vendor');
     expect(mamaProfile?.routine.length).toBeGreaterThan(0);
 
-    const mamaState = await NpcService.getNpcState(CANONICAL_NPC_IDS.MAMA_NKECHI, mockDb);
+    const mamaState = await NpcService.getNpcState(CANONICAL_NPC_IDS.MAMA_TARILA, mockDb);
     expect(mamaState).not.toBeNull();
-    expect(mamaState?.displayName).toContain('Mama Nkechi');
+    expect(mamaState?.displayName).toContain('Mama Tarila');
     expect(mamaState?.walletBalance).toBe(25000);
-    expect(mamaState?.venueId).toBe('venue-mama-put');
+    expect(mamaState?.venueId).toBe('venue-mama-tarila-bole');
   });
 
   // ==========================================================================

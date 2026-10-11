@@ -1,6 +1,12 @@
-import { NpcRole, ScheduleBlock, NpcProfile } from './types';
+import { NpcRole, ScheduleBlock } from './types';
 
 export const CANONICAL_NPC_IDS = {
+  // Port Harcourt Canonical Cast
+  MAMA_TARILA: '00000000-0000-0000-0000-0000000000a1',
+  ELDER_TAMUNO: '00000000-0000-0000-0000-0000000000a2',
+  INSPECTOR_FRIDAY: '00000000-0000-0000-0000-0000000000a3',
+
+  // Backward-compatible aliases
   MAMA_NKECHI: '00000000-0000-0000-0000-0000000000a1',
   BABA_MUSBAU: '00000000-0000-0000-0000-0000000000a2',
   OFFICER_DANLADI: '00000000-0000-0000-0000-0000000000a3',
@@ -9,25 +15,25 @@ export const CANONICAL_NPC_IDS = {
 export const DEFAULT_NPC_ROUTINES: Record<NpcRole, ScheduleBlock[]> = {
   food_vendor: [
     { startHour: 0, endHour: 6, activity: 'sleeping', actionHint: 'rest_at_home' },
-    { startHour: 6, endHour: 8, activity: 'commuting', actionHint: 'prep_and_cook' },
-    { startHour: 8, endHour: 13, activity: 'working', actionHint: 'cooking_and_serving' },
+    { startHour: 6, endHour: 8, activity: 'commuting', actionHint: 'light_grill_and_prep' },
+    { startHour: 8, endHour: 13, activity: 'working', actionHint: 'roasting_bole_and_serving' },
     { startHour: 13, endHour: 14, activity: 'eating', actionHint: 'lunch_break' },
-    { startHour: 14, endHour: 18, activity: 'working', actionHint: 'afternoon_rush' },
-    { startHour: 18, endHour: 21, activity: 'socializing', actionHint: 'market_banter' },
+    { startHour: 14, endHour: 18, activity: 'working', actionHint: 'evening_bole_rush' },
+    { startHour: 18, endHour: 21, activity: 'socializing', actionHint: 'dline_banter' },
     { startHour: 21, endHour: 24, activity: 'sleeping', actionHint: 'night_rest' },
   ],
   transport_rider: [
     { startHour: 0, endHour: 6, activity: 'sleeping', actionHint: 'night_rest' },
     { startHour: 6, endHour: 7, activity: 'commuting', actionHint: 'engine_warmup' },
-    { startHour: 7, endHour: 13, activity: 'working', actionHint: 'shuttling_passengers' },
-    { startHour: 13, endHour: 14, activity: 'eating', actionHint: 'buy_lunch_at_bukka' },
-    { startHour: 14, endHour: 18, activity: 'working', actionHint: 'afternoon_trips' },
+    { startHour: 7, endHour: 13, activity: 'working', actionHint: 'shuttling_passengers_dline' },
+    { startHour: 13, endHour: 14, activity: 'eating', actionHint: 'buy_lunch_at_bole_joint' },
+    { startHour: 14, endHour: 18, activity: 'working', actionHint: 'waterlines_and_garrison_trips' },
     { startHour: 18, endHour: 21, activity: 'socializing', actionHint: 'junction_banter' },
     { startHour: 21, endHour: 24, activity: 'sleeping', actionHint: 'night_rest' },
   ],
   community_patrol: [
     { startHour: 0, endHour: 7, activity: 'sleeping', actionHint: 'night_rest' },
-    { startHour: 7, endHour: 8, activity: 'commuting', actionHint: 'morning_walk' },
+    { startHour: 7, endHour: 8, activity: 'commuting', actionHint: 'morning_round' },
     { startHour: 8, endHour: 12, activity: 'patrolling', actionHint: 'junction_security' },
     { startHour: 12, endHour: 13, activity: 'patrolling', actionHint: 'market_round' },
     { startHour: 13, endHour: 14, activity: 'eating', actionHint: 'afternoon_rest' },
@@ -50,44 +56,44 @@ export const DEFAULT_NPC_ROUTINES: Record<NpcRole, ScheduleBlock[]> = {
 };
 
 export const NPC_DIALOGUE_COLLECTIONS: Record<string, Record<string, string[]>> = {
-  [CANONICAL_NPC_IDS.MAMA_NKECHI]: {
+  [CANONICAL_NPC_IDS.MAMA_TARILA]: {
     greeting: [
-      "Welcome, my customer! Hot jollof with fried dodo dey!",
-      "Nne/Nna, enter inside make I give you correct food.",
-      "How body? Today's stew sweet pass yesterday own o!",
+      "Welcome, my person! Correct Port Harcourt Bole and fish dey hot!",
+      "Oya come chop better Bole with fresh croaker fish and spicy sauce!",
+      "How body? Today's fish sweet pass yesterday own o!",
     ],
     farewell: [
-      "Thank you o! Greet your people for me!",
+      "Thank you o! Greet everybody for your yard!",
       "Safe journey! Come back tomorrow with your friends!",
     ],
     buy_food: [
-      "Here is your hot jollof rice and chilled water! Enjoy am!",
+      "Here is your hot Bole, fish, and pepper sauce! Mind your tongue o, pepper sharp!",
     ],
     busy: [
-      "Wait small, dodo still dey inside hot oil.",
+      "Wait small, fish still dey ontop grill.",
     ],
   },
-  [CANONICAL_NPC_IDS.BABA_MUSBAU]: {
+  [CANONICAL_NPC_IDS.ELDER_TAMUNO]: {
     greeting: [
-      "Otigba straight! Enter with your change o!",
-      "Ikeja Along, Under Bridge! Bros, you dey enter?",
-      "How work dey go, my brother?",
+      "Waterlines straight! 200 naira per drop!",
+      "Garrison inside! Enter with your change o!",
+      "Port Harcourt city, no dulling! Bros, you dey enter?",
     ],
     farewell: [
       "Drop gently o, make you hold your bag well!",
-      "Allah bless your hustle today!",
+      "Allah bless your hustle today, my brother!",
     ],
     request_ride: [
-      "Sharp sharp, enter front seat make we zoom off!",
+      "Sharp sharp, enter front seat make we move!",
     ],
     busy: [
       "Keke don full! Wait for the next turn.",
     ],
   },
-  [CANONICAL_NPC_IDS.OFFICER_DANLADI]: {
+  [CANONICAL_NPC_IDS.INSPECTOR_FRIDAY]: {
     greeting: [
-      "Good day my brother. Everything calm for here.",
-      "Peace and order must reign for Otigba street.",
+      "Good day my brother. Garden City dey calm and secured.",
+      "Peace and safety na our priority for Port Harcourt.",
       "Security na everybody business. How you dey?",
     ],
     farewell: [
