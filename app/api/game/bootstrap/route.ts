@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/db/server';
 import { EventService } from '@/domains/events';
 import { NpcService } from '@/domains/npc/service';
 import { EconomyService } from '@/domains/economy/service';
+import { OrganizationService } from '@/domains/organizations/service';
 import { CANONICAL_NPC_IDS } from '@/domains/npc/routines';
 
 export async function GET(request: Request) {
@@ -223,6 +224,16 @@ export async function GET(request: Request) {
       // Non-fatal liquidity init
     }
 
+    // 15. Fetch Active Organizations & Character Affiliations
+    let organizations: any[] = [];
+    let memberships: any[] = [];
+    try {
+      organizations = await OrganizationService.listOrganizations(adminDb);
+      memberships = await OrganizationService.getCharacterMemberships(characterId, adminDb);
+    } catch {
+      // Non-fatal fallback
+    }
+
     return NextResponse.json({
       ok: true,
       account: {
@@ -263,6 +274,8 @@ export async function GET(request: Request) {
       employment: activeEmployment,
       transactions: recentTransactions,
       events: recentEvents,
+      organizations,
+      memberships,
       world: {
         gameTime: gameTime.toISOString(),
         gameHour,

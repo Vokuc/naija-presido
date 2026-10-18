@@ -425,13 +425,35 @@ export const BuyItemCommand = registerCommand<BuyItemPayload, BuyItemOutcome>(
       const item = (await EconomyService.getItem(itemName, ctx.db))!;
       const price = item.price;
 
+      // Route payment: to seller character if specified, or to venue enterprise if linked, or system fallback
+      let recipientId: string | null = sellerId ?? null;
+      let recipientType: 'character' | 'business' | 'organization' | 'system' = sellerId ? 'character' : 'system';
+
+      if (!recipientId && venueId) {
+        try {
+          const { data: venueOrg } = await ctx.db
+            .from('org_organization')
+            .select('id, type')
+            .eq('venue_id', venueId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (venueOrg) {
+            recipientId = venueOrg.id;
+            recipientType = venueOrg.type === 'business' ? 'business' : 'organization';
+          }
+        } catch {
+          // Fall back gracefully to system
+        }
+      }
+
       // Atomic payment deduction
       const transferRes = await EconomyService.transferFunds(
         {
           fromId: charId,
-          toId: sellerId ?? null,
+          toId: recipientId,
           fromType: 'character',
-          toType: sellerId ? 'character' : 'system',
+          toType: recipientType,
           amount: price,
           sourceType: 'purchase',
           sourceId: item.id,

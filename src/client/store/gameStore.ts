@@ -94,6 +94,8 @@ export interface GameStore {
   employment: any | null;
   transactions: Array<{ id: string; amount: number; sourceType: string; reason?: string; createdAt: string; fromId?: string; toId?: string }>;
   events: Array<{ id: string; type: string; significance: string; gameTimestamp: string; payload?: any }>;
+  organizations: any[];
+  memberships: any[];
 
   // Interaction State
   nearbyInteractable: NearbyInteractable | null;
@@ -144,6 +146,9 @@ export interface GameStore {
   createCharacter: (displayName: string, bio: string, avatarConfig: Record<string, unknown>) => Promise<boolean>;
   selectCharacter: (characterId: string) => Promise<boolean>;
   registerAccount: (username: string) => Promise<boolean>;
+  joinOrganization: (orgId: string) => Promise<boolean>;
+  payOrgDues: (orgId: string, amount: number) => Promise<boolean>;
+  refreshOrganizations: () => Promise<void>;
 }
 
 // Canonical Port Harcourt Positions
@@ -252,6 +257,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   employment: null,
   transactions: [],
   events: [],
+  organizations: [],
+  memberships: [],
 
   isBootstrapped: false,
   isLoading: false,
@@ -293,6 +300,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           employment: data.employment ?? null,
           transactions: data.transactions ?? [],
           events: data.events ?? [],
+          organizations: data.organizations ?? [],
+          memberships: data.memberships ?? [],
           gameTime: data.world.gameTime,
           gameHour: data.world.gameHour ?? 14,
           zoneName: data.world.zoneName,
@@ -1072,6 +1081,108 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } catch (err: any) {
       get().addToast(`Registration error: ${err?.message}`, 'error');
       return false;
+    }
+  },
+
+  joinOrganization: async (orgId: string) => {
+    const player = get().player;
+    if (!player) return false;
+
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'JOIN_ORGANIZATION',
+          payload: { orgId },
+          idempotency_key: `join-org-${player.characterId}-${orgId}-${Date.now()}`,
+          issued_at: new Date().toISOString(),
+          actor_id: player.userId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        get().addToast(`Joined organization successfully!`, 'success');
+        await get().refreshOrganizations();
+        return true;
+      } else {
+        get().addToast(data.error || 'Failed to join organization', 'error');
+        return false;
+      }
+    } catch (err: any) {
+      get().addToast(`Join error: ${err?.message}`, 'error');
+      return false;
+    }
+  },
+
+  payOrgDues: async (orgId: string, amount: number) => {
+    const player = get().player;
+    if (!player) return false;
+
+    if (player.walletBalance < amount) {
+      get().addToast(`Insufficient funds: ₦${player.walletBalance} available, ₦${amount} required`, 'error');
+      return false;
+    }
+
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'PAY_ORG_DUES',
+          payload: { orgId, amount },
+          idempotency_key: `dues-${player.characterId}-${orgId}-${Date.now()}`,
+          issued_at: new Date().toISOString(),
+          actor_id: player.userId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok && data.state) {
+        // Authoritatively update wallet balance strictly from server response
+        set((state) => ({
+          player: state.player ? { ...state.player, walletBalance: data.state.newBalance } : null,
+        }));
+
+        get().addToast(`Paid ₦${amount.toLocaleString()} dues into union treasury!`, 'success');
+        await get().refreshOrganizations();
+        return true;
+      } else {
+        get().addToast(data.error || 'Failed to pay dues', 'error');
+        return false;
+      }
+    } catch (err: any) {
+      get().addToast(`Payment error: ${err?.message}`, 'error');
+      return false;
+    }
+  },
+
+  refreshOrganizations: async () => {
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/game/bootstrap', {
+        headers: { ...(guestId ? { 'x-guest-user-id': guestId } : {}) },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          set({
+            organizations: data.organizations ?? [],
+            memberships: data.memberships ?? [],
+          });
+        }
+      }
+    } catch {
+      // Non-fatal
     }
   },
 }));

@@ -12,6 +12,10 @@ export function CitizenPassportModal() {
   const transactions = useGameStore((state) => state.transactions);
   const events = useGameStore((state) => state.events);
   const zoneName = useGameStore((state) => state.zoneName);
+  const organizations = useGameStore((state) => state.organizations);
+  const memberships = useGameStore((state) => state.memberships);
+  const joinOrganization = useGameStore((state) => state.joinOrganization);
+  const payOrgDues = useGameStore((state) => state.payOrgDues);
 
   if (activeModal !== 'passport' || !player) return null;
 
@@ -182,6 +186,116 @@ export function CitizenPassportModal() {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Civic & Enterprise Affiliations (Trade Unions, Associations & Enterprises) */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <span>🏛️</span> Civic & Enterprise Affiliations (Unions & Collectives)
+              </h3>
+              <span className="text-[11px] text-zinc-400">
+                {memberships.length} Active {memberships.length === 1 ? 'Affiliation' : 'Affiliations'}
+              </span>
+            </div>
+
+            {/* Active Memberships */}
+            {memberships && memberships.length > 0 ? (
+              <div className="space-y-2.5 mb-4">
+                {memberships.map((m: any) => {
+                  const orgName = m.org_organization?.name || m.orgName || 'Local Organization';
+                  const orgType = m.org_organization?.type || m.type || 'organization';
+                  const roleName = m.org_role?.name || m.roleName || 'Member';
+                  const roleRank = m.org_role?.rank || m.roleRank || 10;
+                  const isDuesPaid = m.dues_paid_until && new Date(m.dues_paid_until) > new Date();
+
+                  const typeBadgeClass =
+                    orgType === 'trade_union'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      : orgType === 'business'
+                      ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+
+                  return (
+                    <div
+                      key={m.id || m.org_id}
+                      className="p-3.5 rounded-2xl bg-zinc-900/80 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-zinc-100 text-xs">{orgName}</span>
+                          <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-mono border ${typeBadgeClass}`}>
+                            {orgType.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                          <span>
+                            Role: <strong className="text-zinc-200">{roleName}</strong> (Rank {roleRank})
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Dues Status:{' '}
+                            <strong className={isDuesPaid ? 'text-emerald-400' : 'text-amber-400'}>
+                              {isDuesPaid ? 'Up to date' : 'Due: ₦500'}
+                            </strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!isDuesPaid && (
+                          <button
+                            onClick={() => payOrgDues(m.org_id || m.orgId, 500)}
+                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-[11px] transition-all shadow-md shadow-amber-950/40"
+                          >
+                            Pay Dues (₦500)
+                          </button>
+                        )}
+                        {isDuesPaid && (
+                          <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[10px] font-mono">
+                            ✓ Good Standing
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-zinc-900/40 border border-white/5 text-center text-xs text-zinc-500 mb-3">
+                No active trade union or business memberships. Join a collective below to participate in civic society!
+              </div>
+            )}
+
+            {/* Organizations to Join */}
+            {organizations && organizations.filter((org: any) => !memberships.some((m: any) => (m.org_id || m.orgId) === org.id)).length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500 block">
+                  Available Collectives in Port Harcourt D-Line:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {organizations
+                    .filter((org: any) => !memberships.some((m: any) => (m.org_id || m.orgId) === org.id))
+                    .map((org: any) => (
+                      <div
+                        key={org.id}
+                        className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between gap-2"
+                      >
+                        <div className="truncate">
+                          <span className="text-xs font-semibold text-zinc-200 block truncate">{org.name}</span>
+                          <span className="text-[10px] text-zinc-500 capitalize">{org.type?.replace('_', ' ')}</span>
+                        </div>
+                        <button
+                          onClick={() => joinOrganization(org.id)}
+                          className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold whitespace-nowrap transition-all"
+                        >
+                          + Join
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Financial Ledger & Authoritative History */}
