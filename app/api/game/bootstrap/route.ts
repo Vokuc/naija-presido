@@ -7,11 +7,18 @@ import { CANONICAL_NPC_IDS } from '@/domains/npc/routines';
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient();
+    let user = null;
+    try {
+      const supabase = await createClient();
+      const authRes = await supabase.auth.getUser();
+      user = authRes.data?.user ?? null;
+    } catch {
+      // Prerender or guest mode
+    }
+
     const adminDb = createAdminClient();
 
     // 1. Resolve Auth user or Guest fallback
-    let { data: { user } } = await supabase.auth.getUser();
     let effectiveUserId = user?.id;
     let isGuest = false;
 
@@ -180,8 +187,50 @@ export async function GET(request: Request) {
       .select('*')
       .order('price', { ascending: true });
 
+    // 9. Fetch Account Characters
+    const { data: allCharacters } = await adminDb
+      .from('chr_character')
+      .select('id, display_name, bio, avatar_config, is_npc, created_at')
+      .eq('account_id', account!.id)
+      .eq('is_npc', false)
+      .order('created_at', { ascending: false });
+
+    // 10. Fetch Active Employment
+    const activeEmployment = await EconomyService.getActiveEmployment(characterId, adminDb);
+
+    // 11. Fetch Scoped Reputation Profile
+    const { data: repRows } = await adminDb
+      .from('soc_reputation')
+      .select('dimension, score, scope_type, scope_id')
+      .eq('character_id', characterId);
+
+    // 12. Fetch Recent Ledger Transactions
+    const recentTransactions = await EconomyService.getTransactionHistory(characterId, adminDb, { limit: 10 });
+
+    // 13. Fetch Recent Chronicle Timeline Events
+    const recentEvents = await EventService.getCharacterTimeline(characterId, { limit: 10 }, adminDb);
+
+    // 14. Ensure Garden City Plaza has business liquidity for wages
+    try {
+      const plazaWallet = await EconomyService.getWallet('10000000-0000-0000-0000-000000000023', adminDb);
+      if (plazaWallet.balance < 500000) {
+        await adminDb
+          .from('eco_wallet')
+          .update({ balance: 2500000, updated_at: new Date().toISOString() })
+          .eq('character_id', '10000000-0000-0000-0000-000000000023');
+      }
+    } catch {
+      // Non-fatal liquidity init
+    }
+
     return NextResponse.json({
       ok: true,
+      account: {
+        id: account!.id,
+        userId: effectiveUserId,
+        username: account!.username,
+        isGuest,
+      },
       player: {
         userId: effectiveUserId,
         accountId: account!.id,
@@ -194,9 +243,26 @@ export async function GET(request: Request) {
         energy: Number(charStats?.energy ?? 100),
         hunger: Number(charStats?.hunger ?? 0),
         health: Number(charStats?.health ?? 100),
-        jobTitle: charStats?.job_title ?? 'Resident',
+        jobTitle: activeEmployment?.jobTitle ?? charStats?.job_title ?? 'Resident',
         walletBalance: wallet.balance,
       },
+      characters: (allCharacters || []).map((c) => ({
+        id: c.id,
+        displayName: c.display_name,
+        bio: c.bio,
+        avatarConfig: c.avatar_config || {},
+        isActive: c.id === characterId,
+      })),
+      reputation: (repRows && repRows.length > 0)
+        ? repRows
+        : [
+            { dimension: 'popularity', score: 10, scope_type: 'neighbourhood' },
+            { dimension: 'trust', score: 10, scope_type: 'neighbourhood' },
+            { dimension: 'competence', score: 5, scope_type: 'global' },
+          ],
+      employment: activeEmployment,
+      transactions: recentTransactions,
+      events: recentEvents,
       world: {
         gameTime: gameTime.toISOString(),
         gameHour,
@@ -208,6 +274,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error: any) {
+    if (error?.digest === 'NEXT_PRERENDER_INTERRUPTED' || error?.message?.includes('bail out of prerendering')) {
+      throw error;
+    }
     console.error('Failed to bootstrap game:', error);
     return NextResponse.json(
       { ok: false, error: error?.message || 'Bootstrap failed' },

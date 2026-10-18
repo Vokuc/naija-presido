@@ -6,7 +6,7 @@ import { EventService } from '@/domains/events';
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${Env.TICK_SECRET}`) {
+  if (!Env.TICK_SECRET || Env.TICK_SECRET.trim().length === 0 || authHeader !== `Bearer ${Env.TICK_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

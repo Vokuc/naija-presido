@@ -26,11 +26,15 @@ export function PlayerController() {
   const isMoving = useGameStore((state) => state.isMoving);
   const player = useGameStore((state) => state.player);
 
+  const wasMoving = useRef(false);
+
   useFrame((_, delta) => {
     // Clamp delta to avoid large jumps on frame drops
     const dt = Math.min(delta, 0.1);
 
     if (isMoving && (movementVector.x !== 0 || movementVector.z !== 0)) {
+      wasMoving.current = true;
+
       // Calculate target angle based on movement vector
       targetRotation.current = Math.atan2(movementVector.x, movementVector.z);
 
@@ -63,8 +67,9 @@ export function PlayerController() {
           true
         );
       }
-    } else {
-      // Stopped: announce stationary status once
+    } else if (wasMoving.current) {
+      // Stopped transition: announce stationary status once only, avoiding 60Hz WebSocket flooding
+      wasMoving.current = false;
       if (player) {
         broadcastMovement(
           { id: player.characterId, name: player.displayName },

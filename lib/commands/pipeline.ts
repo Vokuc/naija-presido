@@ -11,6 +11,7 @@ import {
   SimulationOutcome,
 } from './types';
 import { EventService, deriveRetentionTier } from '@/domains/events';
+import { toSafeUuid } from '@/lib/utils/uuid';
 
 /**
  * Recursively inspects an object for forbidden authoritative keys.
@@ -159,6 +160,7 @@ export async function executeCommandPipeline<TPayload = any, TOutcome = any>(
 
     // 5. Idempotency Replay Check (Checks if already executed)
     if (command.idempotency_key) {
+      command.idempotency_key = toSafeUuid(command.idempotency_key);
       try {
         const { data: existingRecord } = await ctx.db
           .from('cmd_idempotency')

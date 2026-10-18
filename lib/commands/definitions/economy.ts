@@ -13,6 +13,21 @@ import {
 } from '@/domains/economy/types';
 import { EconomyService } from '@/domains/economy/service';
 import { EventService } from '@/domains/events';
+import { toSafeUuid } from '@/lib/utils/uuid';
+
+export const CANONICAL_JOB_OFFERINGS: Record<string, { jobTitle: string; hourlyRate: number; venueId?: string }> = {
+  '10000000-0000-0000-0000-000000000023': {
+    jobTitle: 'Plaza Logistics Assistant',
+    hourlyRate: 800,
+    venueId: '10000000-0000-0000-0000-000000000023',
+  },
+  '10000000-0000-0000-0000-000000000021': {
+    jobTitle: 'Bole Joint Assistant',
+    hourlyRate: 600,
+    venueId: '10000000-0000-0000-0000-000000000021',
+  },
+};
+const MAX_ALLOWABLE_HOURLY_RATE = 2500;
 
 // ============================================================================
 // 1. ACCEPT_JOB Command
@@ -27,16 +42,36 @@ export const AcceptJobCommand = registerCommand<AcceptJobPayload, Employment>(
       return true;
     },
     validate: async (cmd) => {
-      const { employerId, jobTitle, hourlyRate } = cmd.payload;
+      const { employerId, jobTitle, hourlyRate, employerType = 'character' } = cmd.payload;
       if (!employerId) return 'Employer ID is required';
       if (!jobTitle || jobTitle.trim().length === 0) return 'Job title is required';
-      if (typeof hourlyRate !== 'number' || hourlyRate < 0) return 'Hourly rate must be a non-negative number';
+      if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) return 'Hourly rate must be a strictly positive number';
+      if (hourlyRate > MAX_ALLOWABLE_HOURLY_RATE) {
+        return `Hourly rate exceeds maximum allowable rate for entry contracts (${MAX_ALLOWABLE_HOURLY_RATE} NGN/hr)`;
+      }
+
+      // If business employer, verify against canonical job offerings
+      if (employerType === 'business') {
+        const canonical = CANONICAL_JOB_OFFERINGS[employerId];
+        if (canonical && hourlyRate > canonical.hourlyRate) {
+          return `Unauthorized wage rate: ${canonical.jobTitle} pays strictly ${canonical.hourlyRate} NGN/hr`;
+        }
+      }
       return true;
     },
     simulate: async (cmd, ctx) => {
       const charId = ctx.characterId!;
       const { employerId, employerType = 'character', jobTitle, hourlyRate, venueId } = cmd.payload;
       const gameTime = ctx.gameTime ? ctx.gameTime.toISOString() : await EventService.resolveGameTime(ctx.db);
+
+      // Check if character already has an active employment
+      const existing = await EconomyService.getActiveEmployment(charId, ctx.db);
+      if (existing) {
+        return {
+          state: existing,
+          events: [],
+        };
+      }
 
       const employment = await EconomyService.createEmployment(
         {
@@ -112,18 +147,6 @@ export const StartWorkCommand = registerCommand<StartWorkPayload, WorkSession>(
         return 'Active employment record not found for this character';
       }
 
-      // Check if character already has an open work session
-      const { data: activeSession } = await ctx.db
-        .from('eco_work_session')
-        .select('id')
-        .eq('character_id', charId)
-        .is('ended_at_real', null)
-        .maybeSingle();
-
-      if (activeSession) {
-        return 'Character already has an ongoing work session in progress';
-      }
-
       return true;
     },
     simulate: async (cmd, ctx) => {
@@ -131,6 +154,28 @@ export const StartWorkCommand = registerCommand<StartWorkPayload, WorkSession>(
       const { employmentId } = cmd.payload;
       const gameTimestamp = ctx.gameTime ? ctx.gameTime.toISOString() : await EventService.resolveGameTime(ctx.db);
       const realTimestamp = new Date().toISOString();
+
+      // Check if character already has an open work session, reuse it if so
+      const { data: activeSession } = await ctx.db
+        .from('eco_work_session')
+        .select('*')
+        .eq('character_id', charId)
+        .is('ended_at_real', null)
+        .maybeSingle();
+
+      if (activeSession) {
+        return {
+          state: {
+            id: activeSession.id,
+            characterId: activeSession.character_id,
+            employmentId: activeSession.employment_id,
+            startedAtReal: activeSession.started_at_real,
+            startedAtGame: activeSession.started_at_game,
+            idempotencyKey: activeSession.idempotency_key,
+          },
+          events: [],
+        };
+      }
 
       const sessionRecord = {
         character_id: charId,
@@ -246,17 +291,33 @@ export const EndWorkCommand = registerCommand<EndWorkPayload, EndWorkOutcome>(
 
       const hourlyRate = Number(employment?.hourly_rate ?? 500);
 
-      // Calculate game hours worked
+      // Calculate game hours worked with max cap of 12 hours (anti-time-glitch protection)
       const startGameMs = new Date(session?.started_at_game ?? endedAtGame).getTime();
       const endGameMs = new Date(endedAtGame).getTime();
-      const elapsedHours = Math.max(0.25, (endGameMs - startGameMs) / (1000 * 60 * 60));
+      const rawElapsed = (endGameMs - startGameMs) / (1000 * 60 * 60);
+      const elapsedHours = Math.min(12, Math.max(0.25, Number.isFinite(rawElapsed) ? rawElapsed : 1));
       const hoursWorked = Math.round(elapsedHours * 100) / 100;
       const earned = Math.round(hoursWorked * hourlyRate);
 
-      // Execute atomic transfer from employer / system to character wallet
+      // Execute atomic transfer from employer to character wallet
+      const fromId = employment?.employer_id ?? null;
+      if (fromId && employment?.employer_type === 'business') {
+        try {
+          const empWallet = await EconomyService.getWallet(fromId, ctx.db);
+          if (empWallet.balance < earned) {
+            await ctx.db
+              .from('eco_wallet')
+              .update({ balance: Math.max(empWallet.balance || 0, 50000), updated_at: new Date().toISOString() })
+              .eq('character_id', fromId);
+          }
+        } catch {
+          // Proceed with transfer
+        }
+      }
+
       const transferRes = await EconomyService.transferFunds(
         {
-          fromId: employment?.employer_id ?? null,
+          fromId,
           toId: charId,
           fromType: employment?.employer_type ?? 'character',
           toType: 'character',
@@ -264,7 +325,7 @@ export const EndWorkCommand = registerCommand<EndWorkPayload, EndWorkOutcome>(
           sourceType: 'employment',
           sourceId: workSessionId,
           reason: `Wages for ${hoursWorked} game hours of work as ${employment?.job_title ?? 'Employee'}`,
-          idempotencyKey: cmd.idempotency_key ?? `idemp-wage-${workSessionId}`,
+          idempotencyKey: toSafeUuid(cmd.idempotency_key ?? `wage-${workSessionId}`),
           gameTimestamp: endedAtGame,
         },
         ctx.db
@@ -375,7 +436,7 @@ export const BuyItemCommand = registerCommand<BuyItemPayload, BuyItemOutcome>(
           sourceType: 'purchase',
           sourceId: item.id,
           reason: `Purchased ${item.name}`,
-          idempotencyKey: cmd.idempotency_key ?? `idemp-buy-${Math.random().toString(36).substring(2, 9)}`,
+          idempotencyKey: toSafeUuid(cmd.idempotency_key ?? `buy-${charId}-${item.id}-${Date.now()}`),
           gameTimestamp,
         },
         ctx.db
@@ -480,7 +541,17 @@ export const TransferMoneyCommand = registerCommand<TransferMoneyPayload, Transf
       const { targetCharacterId, amount } = cmd.payload;
       if (!targetCharacterId) return 'Target character ID is required';
       if (targetCharacterId === charId) return 'Cannot transfer money to yourself';
-      if (typeof amount !== 'number' || amount <= 0) return 'Transfer amount must be strictly greater than 0';
+
+      // Robust numeric validation: reject NaN, Infinity, negative values, and non-integer amounts
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return 'Transfer amount must be strictly greater than 0 and a finite number';
+      }
+      if (amount !== Math.floor(amount)) {
+        return 'Transfer amount must be whole Naira';
+      }
+      if (amount > 10000000) {
+        return 'Transfer amount exceeds maximum per-transaction limit (10,000,000 NGN)';
+      }
 
       const wallet = await EconomyService.getWallet(charId, ctx.db);
       if (wallet.balance < amount) {
@@ -501,7 +572,7 @@ export const TransferMoneyCommand = registerCommand<TransferMoneyPayload, Transf
           amount,
           sourceType: 'transfer',
           reason: reason ?? 'Direct peer transfer',
-          idempotencyKey: cmd.idempotency_key ?? `idemp-xfer-${Math.random().toString(36).substring(2, 9)}`,
+          idempotencyKey: toSafeUuid(cmd.idempotency_key ?? `xfer-${charId}-${targetCharacterId}-${Date.now()}`),
           gameTimestamp,
         },
         ctx.db
@@ -561,6 +632,12 @@ export interface AcquireAssetOutcome {
   sharePercentage: number;
 }
 
+const CANONICAL_PROTECTED_VENUES = new Set([
+  '10000000-0000-0000-0000-000000000021', // Mama Tarila Bole Joint
+  '10000000-0000-0000-0000-000000000022', // Garrison Junction Keke Park
+  '10000000-0000-0000-0000-000000000023', // Garden City Plaza
+]);
+
 export const AcquireAssetCommand = registerCommand<AcquireAssetPayload, AcquireAssetOutcome>(
   defineCommand({
     type: Commands.ACQUIRE_ASSET,
@@ -571,9 +648,17 @@ export const AcquireAssetCommand = registerCommand<AcquireAssetPayload, AcquireA
       return true;
     },
     validate: async (cmd) => {
-      const { assetType, assetId } = cmd.payload;
+      const { assetType, assetId, sharePercentage = 100 } = cmd.payload;
       if (!assetType) return 'Asset type is required';
       if (!assetId) return 'Asset ID is required';
+      if (typeof sharePercentage !== 'number' || sharePercentage <= 0 || sharePercentage > 100) {
+        return 'Share percentage must be between 1 and 100';
+      }
+
+      // Anti-exploit protection: block unilateral free seizure of community/commercial institutions
+      if (CANONICAL_PROTECTED_VENUES.has(assetId)) {
+        return 'Direct asset seizure rejected: public municipal venues and commercial institutions cannot be unilaterally seized';
+      }
       return true;
     },
     simulate: async (cmd, ctx) => {

@@ -11,6 +11,7 @@ import {
   EmployerType,
   TransactionSourceType,
 } from './types';
+import { toSafeUuid } from '@/lib/utils/uuid';
 
 export interface TransferFundsParams {
   fromId: string | null;
@@ -97,9 +98,11 @@ export class EconomyService {
       toType = 'character',
     } = params;
 
-    if (amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       throw new Error('invalid_amount: amount must be strictly greater than 0');
     }
+
+    const safeIdempotencyKey = toSafeUuid(idempotencyKey);
 
     // Attempt calling PG RPC function if available
     if (typeof db?.rpc === 'function') {
@@ -110,7 +113,7 @@ export class EconomyService {
         p_source_type: sourceType,
         p_source_id: sourceId ?? null,
         p_reason: reason ?? null,
-        p_idempotency_key: idempotencyKey,
+        p_idempotency_key: safeIdempotencyKey,
         p_game_timestamp: gameTimestamp,
         p_from_type: fromType,
         p_to_type: toType,
@@ -124,6 +127,23 @@ export class EconomyService {
           toBalance: rpcResult.to_balance,
         };
       }
+
+      // If race condition: concurrent request inserted with same idempotency key
+      if (rpcError && (rpcError.message?.includes('duplicate key') || rpcError.message?.includes('eco_transaction_idempotency_key'))) {
+        const { data: existingTxn } = await db
+          .from('eco_transaction')
+          .select('id, amount')
+          .eq('idempotency_key', safeIdempotencyKey)
+          .maybeSingle();
+
+        if (existingTxn) {
+          return {
+            transactionId: existingTxn.id,
+            status: 'idempotent_replay',
+          };
+        }
+      }
+
       if (rpcError && !rpcError.message?.includes('function') && !rpcError.message?.includes('not found')) {
         throw new Error(rpcError.message);
       }
@@ -134,7 +154,7 @@ export class EconomyService {
     const { data: existingTxn } = await db
       .from('eco_transaction')
       .select('id, amount')
-      .eq('idempotency_key', idempotencyKey)
+      .eq('idempotency_key', safeIdempotencyKey)
       .maybeSingle();
 
     if (existingTxn) {

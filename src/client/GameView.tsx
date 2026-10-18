@@ -13,6 +13,8 @@ import { PlazaVenueDialog } from './components/PlazaVenueDialog';
 import { NpcConversationDialog } from './components/NpcConversationDialog';
 import { ToastNotification } from './components/ToastNotification';
 import { ChatOverlay } from './components/ChatOverlay';
+import { CitizenPassportModal } from './components/CitizenPassportModal';
+import { AuthAndCharacterModal } from './components/AuthAndCharacterModal';
 
 export function GameView() {
   useGameLoop();
@@ -54,6 +56,8 @@ export function GameView() {
       <KekeTransitDialog />
       <PlazaVenueDialog />
       <NpcConversationDialog />
+      <CitizenPassportModal />
+      <AuthAndCharacterModal />
 
       {/* Toast Notifications */}
       <ToastNotification />

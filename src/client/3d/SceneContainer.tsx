@@ -15,6 +15,8 @@ export function SceneContainer() {
     <div className="w-full h-full relative overflow-hidden bg-zinc-950">
       <Canvas
         shadows
+        dpr={[1, 1.5]}
+        performance={{ min: 0.5 }}
         camera={{ position: [0, 8, 12], fov: 50, near: 0.1, far: 100 }}
         className="w-full h-full"
         gl={{ antialias: true, powerPreference: 'high-performance' }}

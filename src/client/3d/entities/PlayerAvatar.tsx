@@ -49,6 +49,10 @@ export function PlayerAvatar() {
     }
   });
 
+  const shirtColor = (player?.avatarConfig as any)?.shirt || '#008751';
+  const trousersColor = (player?.avatarConfig as any)?.trousers || '#1e272e';
+  const skinColor = (player?.avatarConfig as any)?.skin || '#634439';
+
   return (
     <group ref={groupRef}>
       <EntityLabel
@@ -60,15 +64,15 @@ export function PlayerAvatar() {
         {/* Head */}
         <mesh position={[0, 1.62, 0]} castShadow>
           <boxGeometry args={[0.35, 0.38, 0.35]} />
-          <meshStandardMaterial color="#634439" roughness={0.7} />
+          <meshStandardMaterial color={skinColor} roughness={0.7} />
         </mesh>
 
-        {/* Torso with Nigerian Emerald Green / White Ankara Shirt */}
+        {/* Torso with Custom Ankara Shirt */}
         <mesh position={[0, 1.15, 0]} castShadow>
           <boxGeometry args={[0.55, 0.6, 0.32]} />
-          <meshStandardMaterial color="#008751" roughness={0.5} />
+          <meshStandardMaterial color={shirtColor} roughness={0.5} />
         </mesh>
-        {/* White Pattern Accent on Torso */}
+        {/* Pattern Accent on Torso */}
         <mesh position={[0, 1.15, 0.17]}>
           <planeGeometry args={[0.2, 0.5]} />
           <meshBasicMaterial color="#ffffff" />
@@ -78,7 +82,7 @@ export function PlayerAvatar() {
         <group ref={leftArmRef} position={[-0.38, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]} castShadow>
             <boxGeometry args={[0.16, 0.6, 0.16]} />
-            <meshStandardMaterial color="#008751" roughness={0.6} />
+            <meshStandardMaterial color={shirtColor} roughness={0.6} />
           </mesh>
         </group>
 
@@ -86,23 +90,23 @@ export function PlayerAvatar() {
         <group ref={rightArmRef} position={[0.38, 1.4, 0]}>
           <mesh position={[0, -0.3, 0]} castShadow>
             <boxGeometry args={[0.16, 0.6, 0.16]} />
-            <meshStandardMaterial color="#008751" roughness={0.6} />
+            <meshStandardMaterial color={shirtColor} roughness={0.6} />
           </mesh>
         </group>
 
-        {/* Left Leg (Dark Navy Trousers) */}
+        {/* Left Leg */}
         <group ref={leftLegRef} position={[-0.16, 0.82, 0]}>
           <mesh position={[0, -0.42, 0]} castShadow>
             <boxGeometry args={[0.2, 0.82, 0.22]} />
-            <meshStandardMaterial color="#1e272e" roughness={0.8} />
+            <meshStandardMaterial color={trousersColor} roughness={0.8} />
           </mesh>
         </group>
 
-        {/* Right Leg (Dark Navy Trousers) */}
+        {/* Right Leg */}
         <group ref={rightLegRef} position={[0.16, 0.82, 0]}>
           <mesh position={[0, -0.42, 0]} castShadow>
             <boxGeometry args={[0.2, 0.82, 0.22]} />
-            <meshStandardMaterial color="#1e272e" roughness={0.8} />
+            <meshStandardMaterial color={trousersColor} roughness={0.8} />
           </mesh>
         </group>
       </group>

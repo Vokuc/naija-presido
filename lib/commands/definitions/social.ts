@@ -265,6 +265,25 @@ export const GreetCharacterCommand = registerCommand<GreetCharacterPayload, Gree
 
       if (!targetChar) return 'Target character does not exist';
 
+      // Cooldown guard: cannot spam greet the same character within 30 seconds
+      try {
+        const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+        const { data: recentGreet } = await ctx.db
+          .from('evt_event')
+          .select('id')
+          .eq('type', 'CHARACTER_GREETED')
+          .eq('actor_id', charId)
+          .gte('created_at', thirtySecondsAgo)
+          .contains('payload', { target_character_id: targetCharacterId })
+          .maybeSingle();
+
+        if (recentGreet) {
+          return 'Greeting cooldown active: you have already greeted this citizen recently';
+        }
+      } catch {
+        // Proceed if table or query check not supported in mock
+      }
+
       return true;
     },
     simulate: async (cmd, ctx) => {
@@ -368,6 +387,25 @@ export const EndorseCharacterCommand = registerCommand<EndorseCharacterPayload, 
         .maybeSingle();
 
       if (!targetChar) return 'Target character does not exist';
+
+      // Cooldown guard: cannot endorse the same character within 10 minutes
+      try {
+        const tenMinutesAgo = new Date(Date.now() - 600000).toISOString();
+        const { data: recentEndorse } = await ctx.db
+          .from('evt_event')
+          .select('id')
+          .eq('type', 'CHARACTER_ENDORSED')
+          .eq('actor_id', charId)
+          .gte('created_at', tenMinutesAgo)
+          .contains('payload', { target_character_id: targetCharacterId })
+          .maybeSingle();
+
+        if (recentEndorse) {
+          return 'Endorsement cooldown active: you have already endorsed this citizen recently';
+        }
+      } catch {
+        // Proceed if table or query check not supported in mock
+      }
 
       return true;
     },

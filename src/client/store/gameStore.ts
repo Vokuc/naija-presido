@@ -87,9 +87,17 @@ export interface GameStore {
   chatMessages: ChatMessage[];
   isChatOpen: boolean;
 
+  // Account, Characters, Scoped Reputation & Ledger
+  account: { id: string; userId: string; username: string; isGuest: boolean } | null;
+  characters: Array<{ id: string; displayName: string; bio?: string; avatarConfig: Record<string, unknown>; isActive: boolean }>;
+  reputation: Array<{ dimension: string; score: number; scope_type: string; scope_id?: string }>;
+  employment: any | null;
+  transactions: Array<{ id: string; amount: number; sourceType: string; reason?: string; createdAt: string; fromId?: string; toId?: string }>;
+  events: Array<{ id: string; type: string; significance: string; gameTimestamp: string; payload?: any }>;
+
   // Interaction State
   nearbyInteractable: NearbyInteractable | null;
-  activeModal: 'bole_joint' | 'keke_transit' | 'plaza' | 'npc_dialogue' | null;
+  activeModal: 'bole_joint' | 'keke_transit' | 'plaza' | 'npc_dialogue' | 'passport' | 'auth_characters' | null;
   activeNpcId: string | null;
   activeVenueId: string | null;
   dialogueMessage: string | null;
@@ -105,7 +113,7 @@ export interface GameStore {
   setMovementVector: (vec: { x: number; z: number }) => void;
   setIsMoving: (isMoving: boolean) => void;
   checkProximity: () => void;
-  openModal: (modal: 'bole_joint' | 'keke_transit' | 'plaza' | 'npc_dialogue', targetId?: string, initialDialogue?: string) => void;
+  openModal: (modal: 'bole_joint' | 'keke_transit' | 'plaza' | 'npc_dialogue' | 'passport' | 'auth_characters', targetId?: string, initialDialogue?: string) => void;
   closeModal: () => void;
   addToast: (message: string, type?: 'success' | 'info' | 'error') => void;
   removeToast: (id: string) => void;
@@ -133,6 +141,9 @@ export interface GameStore {
   greetCharacter: (targetId: string) => Promise<boolean>;
   performWorkShift: () => Promise<boolean>;
   takeKekeRide: (riderId: string) => Promise<boolean>;
+  createCharacter: (displayName: string, bio: string, avatarConfig: Record<string, unknown>) => Promise<boolean>;
+  selectCharacter: (characterId: string) => Promise<boolean>;
+  registerAccount: (username: string) => Promise<boolean>;
 }
 
 // Canonical Port Harcourt Positions
@@ -234,6 +245,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activeVenueId: null,
   dialogueMessage: null,
 
+  // Account & Identity State
+  account: null,
+  characters: [],
+  reputation: [],
+  employment: null,
+  transactions: [],
+  events: [],
+
   isBootstrapped: false,
   isLoading: false,
   toasts: [],
@@ -268,6 +287,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         set({
           player: data.player,
+          account: data.account ?? null,
+          characters: data.characters ?? [],
+          reputation: data.reputation ?? [],
+          employment: data.employment ?? null,
+          transactions: data.transactions ?? [],
+          events: data.events ?? [],
           gameTime: data.world.gameTime,
           gameHour: data.world.gameHour ?? 14,
           zoneName: data.world.zoneName,
@@ -299,6 +324,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
           jobTitle: 'Artisan',
           walletBalance: 10000,
         },
+        account: {
+          id: 'acc-offline',
+          userId: 'guest-offline',
+          username: 'ph_citizen_offline',
+          isGuest: true,
+        },
+        characters: [
+          {
+            id: 'char-offline',
+            displayName: 'Chidi (PH Hustler)',
+            bio: 'Port Harcourt local exploring D-Line',
+            avatarConfig: {},
+            isActive: true,
+          },
+        ],
+        reputation: [
+          { dimension: 'popularity', score: 10, scope_type: 'neighbourhood' },
+          { dimension: 'trust', score: 10, scope_type: 'neighbourhood' },
+          { dimension: 'competence', score: 5, scope_type: 'global' },
+        ],
+        employment: null,
+        transactions: [],
+        events: [],
         catalog: [
           {
             id: 'item-bole',
@@ -679,7 +727,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     try {
       const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
-      const idempotencyKey = `buy-${player.characterId}-${Date.now()}`;
+      const idempotencyKey = crypto.randomUUID();
       const res = await fetch('/api/commands', {
         method: 'POST',
         headers: {
@@ -766,10 +814,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     try {
       const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
-      const idempotencyKey = `work-${player.characterId}-${Date.now()}`;
 
-      // First accept job if needed
-      await fetch('/api/commands', {
+      // 1. Authoritatively accept / verify active employment
+      const jobRes = await fetch('/api/commands', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -784,13 +831,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
             hourlyRate: 800,
             venueId: '10000000-0000-0000-0000-000000000023',
           },
-          idempotency_key: `job-${idempotencyKey}`,
+          idempotency_key: crypto.randomUUID(),
           issued_at: new Date().toISOString(),
           actor_id: player.userId,
         }),
       });
 
-      // Start work
+      const jobData = await jobRes.json();
+      const employmentId = jobData?.state?.id;
+
+      if (!employmentId) {
+        get().addToast(jobData?.error || 'Failed to verify employment status', 'error');
+        return false;
+      }
+
+      // 2. Authoritatively start work session
       const startRes = await fetch('/api/commands', {
         method: 'POST',
         headers: {
@@ -800,9 +855,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         body: JSON.stringify({
           type: 'START_WORK',
           payload: {
-            employmentId: 'emp-placeholder',
+            employmentId,
           },
-          idempotency_key: `start-${idempotencyKey}`,
+          idempotency_key: crypto.randomUUID(),
           issued_at: new Date().toISOString(),
           actor_id: player.userId,
         }),
@@ -811,54 +866,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const startData = await startRes.json();
       const sessionId = startData?.state?.id;
 
-      // Finish shift
-      if (sessionId) {
-        const endRes = await fetch('/api/commands', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(guestId ? { 'x-guest-user-id': guestId } : {}),
-          },
-          body: JSON.stringify({
-            type: 'END_WORK',
-            payload: { workSessionId: sessionId },
-            idempotency_key: `end-${idempotencyKey}`,
-            issued_at: new Date().toISOString(),
-            actor_id: player.userId,
-          }),
-        });
-        const endData = await endRes.json();
-        if (endData.ok) {
-          const earned = endData.state.earned;
-          set((state) => ({
-            player: state.player
-              ? {
-                  ...state.player,
-                  walletBalance: endData.state.newBalance,
-                  energy: Math.max(10, state.player.energy - 20),
-                }
-              : null,
-          }));
-          get().addToast(`Completed work shift! Earned ₦${earned?.toLocaleString()}`, 'success');
-          broadcastStateChange('WORK_COMPLETED', `finished work shift at Garden City Plaza (+₦${earned})`);
-          return true;
-        }
+      if (!sessionId) {
+        get().addToast(startData?.error || 'Could not start work shift', 'error');
+        return false;
       }
 
-      // Optimistic wage update if backend employment requires preexisting record
-      const simulatedWage = 1600;
-      set((state) => ({
-        player: state.player
-          ? {
-              ...state.player,
-              walletBalance: state.player.walletBalance + simulatedWage,
-              energy: Math.max(15, state.player.energy - 15),
-            }
-          : null,
-      }));
-      get().addToast(`Work shift finished at Garden City Plaza! Earned ₦1,600`, 'success');
-      broadcastStateChange('WORK_COMPLETED', 'completed logistics shift (+₦1,600)');
-      return true;
+      // 3. Authoritatively complete work session and credit wallet
+      const endRes = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'END_WORK',
+          payload: { workSessionId: sessionId },
+          idempotency_key: crypto.randomUUID(),
+          issued_at: new Date().toISOString(),
+          actor_id: player.userId,
+        }),
+      });
+
+      const endData = await endRes.json();
+      if (endData.ok && endData.state) {
+        const earned = endData.state.earned;
+        const newBalance = endData.state.newBalance;
+
+        // Authoritatively update wallet balance strictly from server response!
+        set((state) => ({
+          player: state.player
+            ? {
+                ...state.player,
+                walletBalance: newBalance,
+                energy: Math.max(10, state.player.energy - 20),
+                jobTitle: 'Plaza Logistics Assistant',
+              }
+            : null,
+        }));
+
+        get().addToast(`Completed shift! Earned ₦${earned?.toLocaleString()} (Balance: ₦${newBalance?.toLocaleString()})`, 'success');
+        broadcastStateChange('WORK_COMPLETED', `finished logistics shift at Garden City Plaza (+₦${earned})`, { earned, newBalance });
+        return true;
+      } else {
+        get().addToast(endData?.error || 'Failed to complete work shift', 'error');
+        return false;
+      }
     } catch (err: any) {
       get().addToast(`Work session error: ${err?.message}`, 'error');
       return false;
@@ -918,5 +970,108 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return true;
     }
     return false;
+  },
+
+  createCharacter: async (displayName: string, bio: string, avatarConfig: Record<string, unknown>) => {
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const idempotencyKey = `create-char-${Date.now()}`;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'CREATE_CHARACTER',
+          payload: {
+            displayName,
+            bio,
+            avatarConfig,
+            isNpc: false,
+          },
+          idempotency_key: idempotencyKey,
+          issued_at: new Date().toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        get().addToast(`Citizen '${displayName}' created successfully!`, 'success');
+        // Refresh bootstrap data to activate new character
+        await get().bootstrap();
+        get().closeModal();
+        return true;
+      } else {
+        get().addToast(data.error || 'Failed to create character', 'error');
+        return false;
+      }
+    } catch (err: any) {
+      get().addToast(`Creation failed: ${err?.message}`, 'error');
+      return false;
+    }
+  },
+
+  selectCharacter: async (characterId: string) => {
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'SELECT_CHARACTER',
+          payload: { characterId },
+          issued_at: new Date().toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        get().addToast(`Switched active character!`, 'success');
+        await get().bootstrap();
+        get().closeModal();
+        return true;
+      } else {
+        get().addToast(data.error || 'Failed to switch character', 'error');
+        return false;
+      }
+    } catch (err: any) {
+      get().addToast(`Switch failed: ${err?.message}`, 'error');
+      return false;
+    }
+  },
+
+  registerAccount: async (username: string) => {
+    try {
+      const guestId = typeof window !== 'undefined' ? localStorage.getItem('np_guest_user_id') : undefined;
+      const res = await fetch('/api/commands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(guestId ? { 'x-guest-user-id': guestId } : {}),
+        },
+        body: JSON.stringify({
+          type: 'CREATE_ACCOUNT',
+          payload: { username },
+          issued_at: new Date().toISOString(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        get().addToast(`Account '${username}' registered!`, 'success');
+        await get().bootstrap();
+        return true;
+      } else {
+        get().addToast(data.error || 'Failed to register account', 'error');
+        return false;
+      }
+    } catch (err: any) {
+      get().addToast(`Registration error: ${err?.message}`, 'error');
+      return false;
+    }
   },
 }));
