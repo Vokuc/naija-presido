@@ -6,22 +6,17 @@ import * as THREE from 'three';
 import { Html } from '@react-three/drei';
 import { RemotePlayerState } from '../../realtime/types';
 import { EntityLabel } from './EntityLabel';
+import { HumanCharacterModel } from './HumanCharacterModel';
 
 export function RemotePlayerAvatar({ player }: { player: RemotePlayerState }) {
   const groupRef = useRef<THREE.Group>(null);
-  const leftLegRef = useRef<THREE.Group>(null);
-  const rightLegRef = useRef<THREE.Group>(null);
-  const leftArmRef = useRef<THREE.Group>(null);
-  const rightArmRef = useRef<THREE.Group>(null);
-  const bodyRef = useRef<THREE.Group>(null);
 
   // Current interpolated position & heading
   const currentPos = useRef(new THREE.Vector3(...player.position));
   const currentRot = useRef(player.rotation);
 
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
-    const t = state.clock.getElapsedTime();
 
     // 1. Smooth Interpolation towards Target Position & Heading
     const [tx, ty, tz] = player.targetPosition;
@@ -39,28 +34,14 @@ export function RemotePlayerAvatar({ player }: { player: RemotePlayerState }) {
       groupRef.current.position.copy(currentPos.current);
       groupRef.current.rotation.y = currentRot.current;
     }
-
-    // 2. Walking Strides Animation
-    const isMoving = player.isMoving || Math.hypot(tx - currentPos.current.x, tz - currentPos.current.z) > 0.05;
-
-    if (isMoving) {
-      const walkCycle = Math.sin(t * 12);
-      if (leftLegRef.current) leftLegRef.current.rotation.x = walkCycle * 0.6;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = -walkCycle * 0.6;
-      if (leftArmRef.current) leftArmRef.current.rotation.x = -walkCycle * 0.55;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = walkCycle * 0.55;
-      if (bodyRef.current) bodyRef.current.position.y = Math.abs(Math.sin(t * 12)) * 0.08;
-    } else {
-      if (leftLegRef.current) leftLegRef.current.rotation.x = 0;
-      if (rightLegRef.current) rightLegRef.current.rotation.x = 0;
-      if (leftArmRef.current) leftArmRef.current.rotation.x = 0;
-      if (rightArmRef.current) rightArmRef.current.rotation.x = 0;
-      if (bodyRef.current) bodyRef.current.position.y = 0;
-    }
   });
 
   const hasSpeech =
     player.activeSpeechBubble && player.activeSpeechBubble.expiresAt > Date.now();
+
+  const isMoving =
+    player.isMoving ||
+    Math.hypot(player.targetPosition[0] - currentPos.current.x, player.targetPosition[2] - currentPos.current.z) > 0.05;
 
   return (
     <group ref={groupRef} position={player.position}>
@@ -79,56 +60,18 @@ export function RemotePlayerAvatar({ player }: { player: RemotePlayerState }) {
         </Html>
       )}
 
-      {/* Humanoid Low-Poly Body */}
-      <group ref={bodyRef}>
-        {/* Head */}
-        <mesh position={[0, 1.62, 0]} castShadow>
-          <boxGeometry args={[0.35, 0.38, 0.35]} />
-          <meshStandardMaterial color="#634439" roughness={0.7} />
-        </mesh>
-
-        {/* Torso (Blue Ankara Shirt) */}
-        <mesh position={[0, 1.15, 0]} castShadow>
-          <boxGeometry args={[0.55, 0.6, 0.32]} />
-          <meshStandardMaterial color="#0984e3" roughness={0.5} />
-        </mesh>
-        <mesh position={[0, 1.15, 0.17]}>
-          <planeGeometry args={[0.2, 0.5]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
-
-        {/* Left Arm */}
-        <group ref={leftArmRef} position={[-0.38, 1.4, 0]}>
-          <mesh position={[0, -0.3, 0]} castShadow>
-            <boxGeometry args={[0.16, 0.6, 0.16]} />
-            <meshStandardMaterial color="#0984e3" roughness={0.6} />
-          </mesh>
-        </group>
-
-        {/* Right Arm */}
-        <group ref={rightArmRef} position={[0.38, 1.4, 0]}>
-          <mesh position={[0, -0.3, 0]} castShadow>
-            <boxGeometry args={[0.16, 0.6, 0.16]} />
-            <meshStandardMaterial color="#0984e3" roughness={0.6} />
-          </mesh>
-        </group>
-
-        {/* Left Leg */}
-        <group ref={leftLegRef} position={[-0.16, 0.82, 0]}>
-          <mesh position={[0, -0.42, 0]} castShadow>
-            <boxGeometry args={[0.2, 0.82, 0.22]} />
-            <meshStandardMaterial color="#2d3436" roughness={0.8} />
-          </mesh>
-        </group>
-
-        {/* Right Leg */}
-        <group ref={rightLegRef} position={[0.16, 0.82, 0]}>
-          <mesh position={[0, -0.42, 0]} castShadow>
-            <boxGeometry args={[0.2, 0.82, 0.22]} />
-            <meshStandardMaterial color="#2d3436" roughness={0.8} />
-          </mesh>
-        </group>
-      </group>
+      {/* Believable Human Character Model */}
+      <HumanCharacterModel
+        gender="male"
+        skinTone="#634439"
+        outfit="ankara_shirt"
+        shirtColor="#0984e3"
+        trousersColor="#2d3436"
+        hairStyle="short_part"
+        isMoving={isMoving}
+        walkSpeedMultiplier={1.2}
+      />
     </group>
   );
 }
+
